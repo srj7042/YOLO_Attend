@@ -1,0 +1,488 @@
+{% extends "base.html" %}
+{% block title %}Staff Directory â€” SmartAttend{% endblock %}
+
+{% block head %}
+<style>
+/* Variable corrections matching base.html */
+:root {
+  --app-primary: var(--brand); 
+}
+
+/* Reset padding */
+.staff-hero { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+.hero-title { font-family: var(--font-heading); font-size: 32px; font-weight: 800; color: var(--app-primary); letter-spacing: -0.5px; }
+.acad-pill { background: rgba(91,45,142,0.08); color: var(--t0); font-family: var(--font-mono); font-size: 13px; padding: 6px 14px; border-radius: 8px; font-weight: 600; display: inline-flex; align-items: center; }
+
+/* Reduced padding sections to fit all 4 years nicely */
+.year-section { margin-bottom: 20px; } 
+
+.year-title {
+  font-family: var(--font-heading); font-size: 17px; font-weight: 700; color: var(--app-primary);
+  margin-bottom: 12px; 
+  display: flex; align-items: center; justify-content: space-between;
+}
+.year-title-span { display: flex; align-items: center; gap: 8px; }
+.year-title-span::before {
+  content: ""; display: block; width: 4px; height: 18px; background: var(--accent); border-radius: 4px;
+}
+.btn-add-dept {
+  background: var(--app-primary); color: white; border: none; border-radius: 8px; font-family: var(--font-mono); font-size: 11px; padding: 6px 12px; cursor: pointer; transition: opacity 0.2s;
+}
+.btn-add-dept:hover { opacity: 0.9; }
+
+.dept-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+
+.dept-card {
+  background: var(--bg1); border-radius: 12px; padding: 18px; 
+  cursor: pointer; position: relative; overflow: hidden;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.04);
+  transition: transform 0.2s, box-shadow 0.2s; border: 1px solid var(--b0);
+}
+.dept-card:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(91,45,142,0.08); }
+.dept-code { font-family: var(--font-mono); font-size: 12px; font-weight: 700; color: var(--accent); text-transform: uppercase; margin-bottom: 4px; }
+.dept-name { font-family: var(--font-heading); font-size: 18px; font-weight: 700; color: var(--t0); margin-bottom: 8px; }
+.dept-meta { font-family: var(--font-body); font-size: 12.5px; color: var(--t2); font-weight: 500; }
+.dept-bg-icon { position: absolute; right: -12px; bottom: -8px; font-size: 60px; color: var(--glass); pointer-events: none; }
+.btn-card-del { position: absolute; top: 12px; right: 12px; width: 28px; height: 28px; border-radius: 50%; background: rgba(255,0,0,0.05); color: #D32F2F; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10; opacity: 0; transition: 0.2s; }
+.dept-card:hover .btn-card-del, .fac-card:hover .btn-card-del { opacity: 1; }
+.btn-card-del:hover { background: #D32F2F; color: white; }
+
+/* Faculty Directory Bottom section */
+.fac-header { display: flex; justify-content: space-between; align-items: center; margin-top: 32px; margin-bottom: 20px; }
+.fac-title { font-family: var(--font-heading); font-size: 24px; font-weight: 800; color: var(--app-primary); }
+.fac-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 16px; margin-bottom: 40px;}
+
+.fac-card {
+  background: var(--bg1); border-radius: 16px; padding: 22px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.04); display: flex; gap: 18px; align-items: flex-start;
+  border: 1px solid var(--b0);
+}
+.fac-img { width: 68px; height: 68px; border-radius: 14px; object-fit: cover; background: var(--bg3); display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--app-primary); font-size: 24px; flex-shrink: 0; overflow:hidden;}
+.fac-info { flex: 1; }
+.fac-name { font-family: var(--font-heading); font-size: 18px; font-weight: 700; color: var(--t0); margin-bottom: 2px; }
+.fac-role { font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--app-primary); margin-bottom: 12px; }
+.fac-subj { font-family: var(--font-body); font-size: 12px; color: var(--t1); display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-weight: 500; }
+
+/* Large Customized Modal overlay */
+.modal-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center; z-index: 9999; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+}
+.modal-overlay.active { opacity: 1; pointer-events: auto; }
+
+.large-modal { 
+  background: var(--bg1); width: 560px; max-width: 90vw; border-radius: 18px; overflow: hidden; transform: translateY(20px); transition: transform 0.2s;
+  box-shadow: 0 24px 48px rgba(0,0,0,0.3); border: 1px solid var(--b0);
+}
+.modal-overlay.active .large-modal { transform: translateY(0); }
+
+.lmodal-header {
+  background: #4B2075; color: #FFFFFF; padding: 26px; position: relative;
+}
+.lmodal-tag { display: inline-block; border: 1px solid rgba(255,255,255,0.25); border-radius: 6px; font-family: var(--font-mono); padding: 4px 10px; font-size: 11px; margin-bottom: 12px; text-transform: uppercase;}
+.lmodal-title { font-family: var(--font-heading); font-size: 28px; font-weight: 700; margin-bottom: 4px; color: #FFFFFF; }
+.lmodal-sub { font-family: var(--font-body); font-size: 13px; color: rgba(255,255,255,0.8); }
+.lmodal-close { position: absolute; top: 20px; right: 20px; background: transparent; border: none; color: rgba(255,255,255,0.6); cursor: pointer; font-size: 20px; transition: color 0.15s;}
+.lmodal-close:hover { color: #FFFFFF; }
+
+.lmodal-body { padding: 26px; }
+.lm-label { font-family:var(--font-heading); font-size: 13px; font-weight: 700; color: var(--t1); text-transform: uppercase; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;}
+.lm-actions a { color: var(--app-primary); font-size: 12px; font-weight: 700; text-decoration: none; cursor: pointer; }
+.lm-actions a:hover { text-decoration: underline; }
+
+.lm-select { 
+  width: 100%; padding: 14px 16px; background: var(--bg2); border: 1px solid var(--b0); border-radius: 12px;
+  font-family: var(--font-body); font-size: 15px; color: var(--t0); font-weight: 500; margin-bottom: 24px; appearance: none;
+  background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%22//www.w3.org/2000/svg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%238A7A9A%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 16px top 50%; background-size: 12px auto;
+}
+
+.import-box {
+  background: var(--glass); border: 1.5px dashed var(--b1); border-radius: 16px;
+  padding: 36px 24px; text-align: center;
+}
+.ib-icon { width: 48px; height: 48px; background: var(--bg1); border-radius: 50%; border: 1px solid var(--b0); display: flex; align-items: center; justify-content: center; color: var(--app-primary); margin: 0 auto 16px auto; box-shadow: 0 4px 10px rgba(0,0,0,0.05); font-size:18px;}
+.ib-title { font-family: var(--font-heading); font-size: 18px; font-weight: 700; color: var(--t0); margin-bottom: 6px; }
+.ib-sub { font-family: var(--font-body); font-size: 13.5px; color: var(--t2); line-height: 1.5; margin-bottom: 24px; max-width:280px; margin-left: auto; margin-right: auto; }
+.btn-orange { background: var(--accent); color: white; border: none; border-radius: 10px; width: 100%; padding: 14px; font-family: var(--font-mono); font-size: 14px; font-weight: 700; cursor: pointer; transition: background 0.2s; box-shadow: 0 4px 12px rgba(255,152,0,0.3);}
+.btn-orange:hover { background: #E68A00; }
+
+.lmodal-footer { display: flex; justify-content: flex-end; align-items: center; padding: 0 26px 26px 26px; }
+.btn-purple { background: var(--app-primary); color: white; border: none; border-radius: 10px; padding: 14px 28px; font-family: var(--font-mono); font-size: 14px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 14px rgba(91,45,142,0.3);}
+.btn-purple:hover { opacity: 0.9; }
+
+.engine-status { font-family: var(--font-mono); font-size: 11px; color: var(--t2); font-weight: 700; text-transform: uppercase; text-align: center; margin-top: -10px; margin-bottom: 20px;}
+.dot-eng { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-right: 6px; vertical-align: middle; margin-top: -2px;}
+
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="staff-hero fu">
+  <div class="hero-title">Classes</div>
+  <div class="acad-pill" id="acadYearPill">Academic Year</div>
+</div>
+<script>
+(function(){
+  const now = new Date();
+  const y = now.getMonth() >= 5 ? now.getFullYear() : now.getFullYear() - 1;
+  document.getElementById('acadYearPill').textContent = 'Academic Year ' + y + '-' + String(y+1).slice(2);
+})();
+</script>
+
+{% for yr_key in [1, 2, 3, 4] %}
+  {% set yr_data = dept_by_year[yr_key] %}
+  <div class="year-section fu">
+    <div class="year-title">
+      <span class="year-title-span">{{ yr_data.label }}</span>
+    </div>
+    <div class="dept-grid">
+      {% if yr_data.depts|length > 0 %}
+        {% for d in yr_data.depts %}
+        <div class="dept-card" onclick="openDeptModal('{{ d.name }}', '{{ d.code }}', '{{ d.id }}')">
+          <form action="{{ url_for('admin.delete_department', id=d.id) }}" method="POST" onsubmit="return confirm('Delete this department and all associated records?')">
+            <button type="submit" class="btn-card-del" onclick="event.stopPropagation()"><i class="fas fa-trash-can"></i></button>
+          </form>
+          <div class="dept-code">{{ d.code }}</div>
+          <div class="dept-name">{{ d.name }}</div>
+          <div class="dept-meta">{{ d.classes }} Divisions &bull; {{ d.students }} Students</div>
+          {% if d.subjects %}
+          <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:8px;">
+            {% for s in d.subjects %}
+            <span style="background:rgba(91,45,142,0.1); color:var(--brand); font-size:10px; font-weight:700; padding:2px 8px; border-radius:6px;">{{ s.name }}</span>
+            {% endfor %}
+          </div>
+          {% endif %}
+          <i class="fas fa-building dept-bg-icon"></i>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="dept-card" style="border:1px dashed #DDD; box-shadow:none; text-align:center; padding: 36px; grid-column: 1 / -1; cursor:default; opacity:0.6;" onclick="">
+          <div style="font-size:20px; color:#CCC; margin-bottom:6px;"><i class="fas fa-folder-open"></i></div>
+          <div class="dept-meta">No departments in {{ yr_data.label }}. Click "Add Department" to create one.</div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+{% endfor %}
+
+<div class="fac-header fu fu3">
+  <div class="fac-title">Faculty Directory</div>
+  <div style="display:flex;gap:12px;">
+    <button class="btn-add-dept" onclick="openAddDeptModal()"><i class="fas fa-plus"></i> Add Department</button>
+    <button class="btn bp" style="border-radius:10px; padding: 12px 24px; font-family:var(--font-mono); font-weight:700;" onclick="openModal('modal-add-teacher')"><i class="fas fa-user-plus" style="margin-right:6px;"></i> Add Faculty</button>
+  </div>
+</div>
+
+<div class="fac-grid fu fu3">
+  {% if teachers and teachers|length > 0 %}
+    {% for t in teachers if t.is_active_account %}
+    <div class="fac-card" style="position:relative;">
+      <form action="{{ url_for('admin.remove_faculty', id=t.id) }}" method="POST" onsubmit="return confirm('Remove faculty status for {{ t.name }}? Account will be deactivated but data preserved.')">
+        <button type="submit" class="btn-card-del"><i class="fas fa-trash-can"></i></button>
+      </form>
+      <div class="fac-img" style="background:var(--brand); color:#fff; font-size:22px; font-weight:700; display:flex; align-items:center; justify-content:center; border-radius:14px;">
+        {{ t.name[:2]|upper }}
+      </div>
+      <div class="fac-info">
+        <div class="fac-name">{{ t.name }}</div>
+        <div class="fac-role">{{ t.department }}</div>
+        {% for s in t.subjects %}
+        <div class="fac-subj"><i class="fas fa-book" style="width:16px;color:var(--t2);text-align:center;"></i> {{ s.name }}</div>
+        {% endfor %}
+        <div class="fac-subj"><i class="fas fa-envelope" style="width:16px;color:var(--t2);text-align:center;"></i> {{ t.email or 'Not provided' }}</div>
+      </div>
+    </div>
+    {% else %}
+    <div style="grid-column:1/-1; text-align:center; padding:48px 0; color:var(--t2);">
+      <i class="fas fa-user-slash" style="font-size:32px; display:block; margin-bottom:12px; opacity:0.3;"></i>
+      No approved faculty yet. Teachers appear here once admin approves them.
+    </div>
+    {% endfor %}
+  {% else %}
+  <div style="grid-column:1/-1; text-align:center; padding:48px 0; color:var(--t2);">
+    <i class="fas fa-user-slash" style="font-size:32px; display:block; margin-bottom:12px; opacity:0.3;"></i>
+    No faculty registered yet. Teachers will appear here once they sign up and are approved.
+  </div>
+  {% endif %}
+</div>
+
+<!-- Dynamic Overlay -->
+<div class="modal-overlay" id="deptModalOverlay">
+  <div class="large-modal" onclick="event.stopPropagation()" style="max-height:90vh;overflow-y:auto;">
+    <div class="lmodal-header">
+      <button class="lmodal-close" onclick="closeDeptModal()"><i class="fas fa-times"></i></button>
+      <div class="lmodal-tag">DEPARTMENT VIEW</div>
+      <div class="lmodal-title" id="mdlDeptTitle">Department</div>
+      <div class="lmodal-sub">Manage divisions, subjects & student records</div>
+    </div>
+    <div class="lmodal-body">
+      <div class="lm-label">
+        <span>MANAGE DIVISIONS</span>
+        <span class="lm-actions"><a href="#" onclick="showAddDivForm()"><i class="fas fa-plus" style="margin-right:2px"></i> CREATE DIVISION</a></span>
+      </div>
+      
+      <div id="addDivForm" style="display:none; background:var(--bg0); padding:16px; border-radius:12px; margin-bottom:16px;">
+        <form action="{{ url_for('admin.add_class') }}" method="POST">
+          <input type="hidden" name="dept_id" id="mdlDeptId">
+          <input name="section" class="fc" placeholder="Division Name (e.g. Div A)" required style="margin-bottom:12px;">
+          <div style="display:flex; gap:8px;">
+            <button type="submit" class="btn-purple" style="padding:8px 16px; font-size:12px;">Create</button>
+            <button type="button" class="btn bs" onclick="hideAddDivForm()" style="padding:8px 16px; font-size:12px;">Cancel</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Division Radio Buttons -->
+      <div id="divRadios" style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:20px;"></div>
+
+      <!-- Subject Dropdown -->
+      <div id="subjectSection" style="display:none; margin-bottom:20px;">
+        <div class="lm-label"><span>SELECT SUBJECT</span></div>
+        <select id="subjectDropdown" class="fc" style="width:100%; margin-bottom:8px;" onchange="loadStudentData()">
+          <option value="">Choose a subject...</option>
+        </select>
+      </div>
+
+      <!-- Student Data Table -->
+      <div id="studentTableSection" style="display:none;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <div class="lm-label" style="margin:0;"><span>STUDENT RECORDS</span> <span id="studentCount" style="color:var(--t2);font-weight:400;"></span></div>
+          <div id="exportBtnWrap" style="display:none;">
+            <a id="exportCsvBtn" href="#" class="btn bp" style="padding:8px 16px; font-size:12px; border-radius:8px; text-decoration:none;">
+              <i class="fas fa-download" style="margin-right:4px;"></i> Export CSV
+            </a>
+          </div>
+        </div>
+        <div style="overflow-x:auto; border-radius:12px; border:1px solid var(--b0);">
+          <table style="width:100%; border-collapse:collapse; font-size:13px;">
+            <thead>
+              <tr style="background:var(--bg2); text-align:left;">
+                <th style="padding:10px 14px; font-size:11px; font-weight:700; color:var(--t1); text-transform:uppercase;">#</th>
+                <th style="padding:10px 14px; font-size:11px; font-weight:700; color:var(--t1); text-transform:uppercase;">Student ID</th>
+                <th style="padding:10px 14px; font-size:11px; font-weight:700; color:var(--t1); text-transform:uppercase;">Roll</th>
+                <th style="padding:10px 14px; font-size:11px; font-weight:700; color:var(--t1); text-transform:uppercase;">Name</th>
+                <th style="padding:10px 14px; font-size:11px; font-weight:700; color:var(--t1); text-transform:uppercase;">Present</th>
+                <th style="padding:10px 14px; font-size:11px; font-weight:700; color:var(--t1); text-transform:uppercase;">Absent</th>
+                <th style="padding:10px 14px; font-size:11px; font-weight:700; color:var(--t1); text-transform:uppercase;">Total</th>
+                <th style="padding:10px 14px; font-size:11px; font-weight:700; color:var(--t1); text-transform:uppercase;">%</th>
+              </tr>
+            </thead>
+            <tbody id="studentTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Import section (shown only when no students) -->
+      <div id="importSection" style="display:none;">
+        <div class="import-box">
+          <form method="POST" action="{{ url_for('admin.import_csv') }}" enctype="multipart/form-data" id="importForm">
+            <input type="hidden" name="dept_name" id="importDeptName">
+            <div class="ib-icon"><i class="fas fa-file-upload"></i></div>
+            <div class="ib-title">No Student Data Found</div>
+            <div class="ib-sub">Upload a CSV or Excel file with columns: <strong>student_id, name, email</strong></div>
+            <input type="file" name="file" id="csvFileInput" accept=".csv,.xlsx,.xls" style="display:none;" onchange="this.form.submit()">
+            <button type="button" class="btn-orange" onclick="document.getElementById('csvFileInput').click()">
+              <i class="fas fa-upload" style="margin-right:6px;"></i> Import CSV / Excel
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+    <div class="engine-status"><span class="dot-eng"></span> SMARTSYNC ENGINE ACTIVE</div>
+    <div class="lmodal-footer">
+      <button class="btn-purple" onclick="closeDeptModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Teacher add modal -->
+<div class="mbg" id="modal-add-teacher">
+  <div class="modal" style="border-radius:18px;">
+    <div class="m-title" style="font-family:var(--font-heading)">Add Faculty Account <button onclick="closeModal('modal-add-teacher')" class="bico" style="width:28px;height:28px;font-size:11px"><i class="fas fa-xmark"></i></button></div>
+    <form method="POST">
+      <div class="g2">
+        <div class="fg"><label class="fl" style="font-family:var(--font-heading)">Full Name</label><input name="name" class="fc" placeholder="Prof. Arjun Mehta" required></div>
+        <div class="fg"><label class="fl" style="font-family:var(--font-heading)">Employee ID</label><input name="employee_id" class="fc" placeholder="TCH003"></div>
+      </div>
+      <div class="g2">
+        <div class="fg"><label class="fl" style="font-family:var(--font-heading)">Username</label><input name="username" class="fc" placeholder="teacher3" required></div>
+        <div class="fg"><label class="fl" style="font-family:var(--font-heading)">Password</label><input name="password" type="password" class="fc" placeholder="Set password" required></div>
+      </div>
+      <div class="fg"><label class="fl" style="font-family:var(--font-heading)">Email</label><input name="email" type="email" class="fc" placeholder="prof@college.edu"></div>
+      <div class="fg"><label class="fl" style="font-family:var(--font-heading)">Department</label><input name="department" class="fc" placeholder="Computer Science"></div>
+      <button type="submit" class="btn bp" style="width:100%;justify-content:center;font-family:var(--font-mono)"><i class="fas fa-user-plus"></i> Create Teacher Account</button>
+    </form>
+  </div>
+</div>
+
+<!-- Add Department Modal -->
+<div class="modal-overlay" id="addDeptModalOverlay" style="opacity:0;pointer-events:none;transition:opacity 0.2s;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:9999;">
+  <div class="large-modal" onclick="event.stopPropagation()" style="background:var(--bg1);width:480px;max-width:90vw;border-radius:18px;overflow:hidden;transform:translateY(20px);transition:transform 0.2s;box-shadow:0 24px 48px rgba(0,0,0,0.3);border:1px solid var(--b0);">
+    <div class="lmodal-header" style="background:#0F204C;color:#fff;padding:26px;position:relative;">
+      <button class="lmodal-close" onclick="closeAddDeptModal()" style="position:absolute;top:20px;right:20px;background:transparent;border:none;color:rgba(255,255,255,0.6);cursor:pointer;font-size:20px;"><i class="fas fa-times"></i></button>
+      <div class="lmodal-tag" style="display:inline-block;border:1px solid rgba(255,255,255,0.25);border-radius:6px;font-family:var(--font-mono);padding:4px 10px;font-size:11px;margin-bottom:12px;text-transform:uppercase;">New Department</div>
+      <div class="lmodal-title" style="font-family:var(--font-heading);font-size:26px;font-weight:700;color:#fff;">Add Department</div>
+      <div class="lmodal-sub" style="font-size:13px;color:rgba(255,255,255,0.8);">This department will be available to all teachers during registration.</div>
+    </div>
+    <form method="POST" action="{{ url_for('admin.add_department') }}">
+      <div class="lmodal-body" style="padding:26px;">
+        <div style="margin-bottom:20px;">
+          <label style="font-family:var(--font-heading);font-size:12px;font-weight:700;color:var(--t1);text-transform:uppercase;display:block;margin-bottom:8px;">Department Name</label>
+          <input name="dept_name" class="lm-select" placeholder="e.g. Artificial Intelligence & Machine Learning" required style="margin-bottom:0;">
+        </div>
+        <div style="margin-bottom:20px;">
+          <label style="font-family:var(--font-heading);font-size:12px;font-weight:700;color:var(--t1);text-transform:uppercase;display:block;margin-bottom:8px;">Short Code</label>
+          <input name="dept_code" class="lm-select" placeholder="e.g. AIML" maxlength="10" required style="margin-bottom:0;text-transform:uppercase;">
+        </div>
+        <div>
+          <label style="font-family:var(--font-heading);font-size:12px;font-weight:700;color:var(--t1);text-transform:uppercase;display:block;margin-bottom:8px;">Academic Year</label>
+          <select name="dept_year" class="lm-select" required style="margin-bottom:0; width:100%; padding:12px 16px; border:1px solid var(--b0); border-radius:10px; font-family:var(--font-body); font-size:14px; background:var(--bg0); color:var(--t0);">
+            <option value="1">First Year (FY)</option>
+            <option value="2" selected>Second Year (SY)</option>
+            <option value="3">Third Year (TY)</option>
+            <option value="4">BTech / Final Year</option>
+          </select>
+        </div>
+      </div>
+      <div class="lmodal-footer" style="display:flex;justify-content:flex-end;padding:0 26px 26px 26px;gap:12px;">
+        <button type="button" onclick="closeAddDeptModal()" style="background:var(--bg3);border:none;border-radius:10px;padding:12px 24px;font-family:var(--font-mono);font-size:13px;font-weight:700;cursor:pointer;color:var(--t1);">Cancel</button>
+        <button type="submit" class="btn-purple" style="background:#0F204C;color:white;border:none;border-radius:10px;padding:12px 28px;font-family:var(--font-mono);font-size:13px;font-weight:700;cursor:pointer;">Create Department</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentDeptId = null;
+let currentClassId = null;
+
+function openDeptModal(deptName, tagText, deptId) {
+  currentDeptId = deptId;
+  document.getElementById('mdlDeptTitle').innerText = deptName;
+  document.getElementById('mdlDeptId').value = deptId;
+  document.getElementById('importDeptName').value = deptName;
+  
+  // Reset state
+  document.getElementById('subjectSection').style.display = 'none';
+  document.getElementById('studentTableSection').style.display = 'none';
+  document.getElementById('importSection').style.display = 'none';
+  document.getElementById('exportBtnWrap').style.display = 'none';
+  
+  // Fetch divisions and render as radio buttons
+  fetch(`/admin/get_divisions/${deptId}`)
+    .then(r => r.json())
+    .then(data => {
+      const container = document.getElementById('divRadios');
+      if(data.length === 0) {
+        container.innerHTML = '<div style="font-size:13px; color:var(--t2); text-align:center; padding:12px; width:100%;">No divisions created yet. Click "Create Division" above.</div>';
+      } else {
+        container.innerHTML = data.map(d => `
+          <label style="display:flex; align-items:center; gap:8px; padding:10px 18px; border-radius:10px; border:1px solid var(--b0); background:var(--bg0); cursor:pointer; font-weight:600; font-size:13px; color:var(--t0); transition:all 0.15s;">
+            <input type="radio" name="divRadio" value="${d.id}" 
+                   onchange="selectDivision(${d.id})"
+                   style="accent-color:var(--brand); width:16px; height:16px;">
+            <span>${deptName} - ${d.section}</span>
+            <form action="/admin/delete_class/${d.id}" method="POST" onsubmit="return confirm('Delete this division and all its students?')" style="margin-left:auto;">
+              <button type="submit" onclick="event.stopPropagation()" style="background:transparent; border:none; color:#D32F2F; cursor:pointer; font-size:12px;"><i class="fas fa-trash-can"></i></button>
+            </form>
+          </label>
+        `).join('');
+      }
+    });
+
+  document.getElementById('deptModalOverlay').classList.add('active');
+}
+
+function selectDivision(classId) {
+  currentClassId = classId;
+  // Highlight selected radio
+  document.querySelectorAll('#divRadios label').forEach(l => l.style.borderColor = 'var(--b0)');
+  const checked = document.querySelector(`input[name="divRadio"][value="${classId}"]`);
+  if(checked) checked.closest('label').style.borderColor = 'var(--brand)';
+  
+  // Show subject dropdown
+  document.getElementById('subjectSection').style.display = 'block';
+  document.getElementById('studentTableSection').style.display = 'none';
+  document.getElementById('importSection').style.display = 'none';
+  
+  fetch(`/admin/get_subjects/${classId}`)
+    .then(r => r.json())
+    .then(subjects => {
+      const dd = document.getElementById('subjectDropdown');
+      dd.innerHTML = '<option value="">Choose a subject...</option>';
+      subjects.forEach(s => {
+        dd.innerHTML += `<option value="${s.id}">${s.name}${s.code ? ' (' + s.code + ')' : ''}</option>`;
+      });
+      if(subjects.length === 0) {
+        dd.innerHTML = '<option value="" disabled>No subjects registered for this division</option>';
+      }
+    });
+}
+
+function loadStudentData() {
+  const subjectId = document.getElementById('subjectDropdown').value;
+  if(!subjectId || !currentClassId) return;
+  
+  fetch(`/admin/get_students/${currentClassId}/${subjectId}`)
+    .then(r => r.json())
+    .then(students => {
+      if(students.length === 0) {
+        document.getElementById('studentTableSection').style.display = 'none';
+        document.getElementById('importSection').style.display = 'block';
+      } else {
+        document.getElementById('importSection').style.display = 'none';
+        document.getElementById('studentTableSection').style.display = 'block';
+        document.getElementById('exportBtnWrap').style.display = 'block';
+        document.getElementById('exportCsvBtn').href = `/admin/export_students/${currentClassId}/${subjectId}`;
+        document.getElementById('studentCount').textContent = `(${students.length} students)`;
+        
+        const tbody = document.getElementById('studentTableBody');
+        tbody.innerHTML = students.map((s, i) => {
+          const pctColor = s.pct >= 75 ? '#2DA84F' : s.pct >= 60 ? '#E67E22' : '#E1251B';
+          return `<tr style="border-bottom:1px solid var(--b0);">
+            <td style="padding:10px 14px; color:var(--t2); font-size:12px;">${i+1}</td>
+            <td style="padding:10px 14px; font-family:var(--font-mono); font-size:12px; color:var(--brand); font-weight:700;">${s.student_id}</td>
+            <td style="padding:10px 14px; font-size:12px; color:var(--t1);">${s.roll}</td>
+            <td style="padding:10px 14px; font-weight:600; color:var(--t0);">${s.name}</td>
+            <td style="padding:10px 14px; color:#2DA84F; font-weight:600;">${s.present}</td>
+            <td style="padding:10px 14px; color:#E1251B; font-weight:600;">${s.absent}</td>
+            <td style="padding:10px 14px; color:var(--t2);">${s.total}</td>
+            <td style="padding:10px 14px; font-weight:700; color:${pctColor};">${s.pct}%</td>
+          </tr>`;
+        }).join('');
+      }
+    });
+}
+
+function closeDeptModal() {
+  document.getElementById('deptModalOverlay').classList.remove('active');
+  hideAddDivForm();
+}
+function showAddDivForm() { document.getElementById('addDivForm').style.display = 'block'; }
+function hideAddDivForm() { document.getElementById('addDivForm').style.display = 'none'; }
+
+function openAddDeptModal() {
+  const overlay = document.getElementById('addDeptModalOverlay');
+  overlay.style.opacity = '1';
+  overlay.style.pointerEvents = 'auto';
+  overlay.querySelector('.large-modal').style.transform = 'translateY(0)';
+}
+function closeAddDeptModal() {
+  const overlay = document.getElementById('addDeptModalOverlay');
+  overlay.style.opacity = '0';
+  overlay.style.pointerEvents = 'none';
+  overlay.querySelector('.large-modal').style.transform = 'translateY(20px)';
+}
+
+document.getElementById('deptModalOverlay').addEventListener('click', function(e) {
+  if(e.target === this) closeDeptModal();
+});
+document.getElementById('addDeptModalOverlay').addEventListener('click', function(e) {
+  if(e.target === this) closeAddDeptModal();
+});
+</script>
+{% endblock %}

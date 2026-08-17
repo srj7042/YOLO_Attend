@@ -1,0 +1,524 @@
+{% extends "base.html" %}
+{% block title %}Your Classes — SmartAttend{% endblock %}
+
+{% block content %}
+<style>
+/* Custom Styles for Classes Page */
+.subject-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 24px; margin-bottom: 40px; }
+.sub-card { background: var(--glass); border: 1px solid var(--b0); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+.sub-card .badge-active { background: rgba(255, 140, 0, 0.15); color: #d97706; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; margin-left: auto; }
+.sub-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; color: white; }
+
+.section-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 24px; }
+.student-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 24px; margin-bottom: 30px; }
+.st-card { background: var(--glass); border: 1px solid var(--b0); border-radius: 16px; display: flex; overflow: hidden; position: relative; }
+.st-photo-col { width: 140px; background: rgba(0,0,0,0.02); display: flex; flex-direction: column; padding: 12px; border-right: 1px solid var(--b0); }
+.st-carousel { flex: 1; position: relative; border-radius: 10px; overflow: hidden; background: #e0e0e0; display: flex; align-items: center; justify-content: center; min-height: 140px; }
+.carousel-btn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 10; font-size: 10px; }
+.carousel-btn.left { left: 4px; }
+.carousel-btn.right { right: 4px; }
+.add-photo-btn { margin-top: 10px; background: var(--brand); color: white; border: none; padding: 6px; border-radius: 6px; font-size: 11px; font-family: var(--font-body); font-weight: 600; cursor: pointer; width: 100%; text-align: center; }
+
+.st-details { flex: 1; padding: 16px; display: flex; flex-direction: column; gap: 6px; }
+.st-name { font-family: var(--font-heading); font-size: 16px; font-weight: 800; color: var(--t0); text-transform: uppercase; margin-bottom: 0px;}
+.st-dept { font-size: 10px; color: var(--t2); font-weight: 500; margin-bottom: 4px; }
+.st-row { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px; border-bottom: 1px dashed var(--b0); padding-bottom: 2px; }
+.st-label { color: var(--t2); font-weight: 600; font-size:9px; text-transform:uppercase; }
+.st-val { color: var(--t0); font-weight: 700; font-family: var(--font-mono); }
+.st-val.att { font-size: 13px; color: var(--t0); }
+
+.edit-st-btn { position: absolute; top: 10px; right: 10px; background: transparent; border: none; color: var(--t2); cursor: pointer; font-size: 12px; transition: color 0.2s; z-index: 5; }
+.edit-st-btn:hover { color: var(--brand); }
+
+.carousel-item { width: 100%; height: 100%; position: absolute; top: 0; left: 0; display: none; }
+.carousel-item.active { display: block; }
+.carousel-item img { width: 100%; height: 100%; object-fit: cover; }
+.remove-photo-btn { position: absolute; top: 4px; right: 4px; background: rgba(255, 0, 0, 0.8); color: white; border: none; border-radius: 4px; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 10px; z-index: 15; opacity: 0; transition: opacity 0.2s; }
+.carousel-item:hover .remove-photo-btn { opacity: 1; }
+.st-carousel-container { position: relative; width: 100%; height: 140px; }
+
+/* Highlight newly added students */
+@keyframes highlightPulse {
+    0% { transform: scale(1); box-shadow: 0 0 0 rgba(108, 99, 255, 0); border-color: var(--b0); }
+    20% { transform: scale(1.02); box-shadow: 0 0 20px rgba(108, 99, 255, 0.4); border-color: var(--brand); }
+    100% { transform: scale(1); box-shadow: 0 0 0 rgba(108, 99, 255, 0); border-color: var(--b0); }
+}
+.newly-added { animation: highlightPulse 3s ease-out; z-index: 100; border-color: var(--brand) !important; box-shadow: 0 10px 30px rgba(108,99,255,0.15) !important; }
+
+/* Modals */
+.modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 9999; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+.modal-overlay.active { opacity: 1; pointer-events: auto; }
+.modal-box { background: var(--bg); border: 1px solid var(--b0); border-radius: 16px; width: 480px; max-width: 95%; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.5); transform: translateY(20px); transition: transform 0.3s; }
+.modal-overlay.active .modal-box { transform: translateY(0); }
+.modal-header { padding: 20px 24px; position: relative; }
+.modal-title { font-size: 26px; font-weight: 800; font-family: var(--font-mono); letter-spacing: 0.5px; margin-bottom: 4px; text-transform: capitalize; }
+.modal-sub { font-size: 13px; opacity: 0.8; }
+.modal-close { position: absolute; top: 16px; right: 20px; background: transparent; border: none; color: white; font-size: 20px; cursor: pointer; opacity: 0.7; }
+.modal-close:hover { opacity: 1; }
+.modal-body { padding: 24px; display: flex; flex-direction: column; background: white; }
+
+.import-box { border: 1px dashed var(--b2); border-radius: 12px; padding: 40px 20px; text-align: center; background: var(--bg2); margin-bottom: 24px; }
+.import-icon { width: 44px; height: 44px; border-radius: 50%; background: white; box-shadow: 0 4px 12px rgba(0,0,0,0.05); display: inline-flex; align-items: center; justify-content: center; font-size: 18px; color: var(--brand); margin-bottom: 16px; }
+
+.pagination { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 20px; }
+.page-btn { width: 32px; height: 32px; border-radius: 8px; border: none; background: transparent; color: var(--t1); font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+.page-btn.active { background: var(--brand); color: white; }
+.page-btn:hover:not(.active) { background: rgba(0,0,0,0.05); }
+
+/* Form inputs */
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-label { font-size: 11px; font-weight: 700; color: var(--t2); text-transform: uppercase; }
+.form-input { padding: 10px 14px; border: 1px solid var(--b0); border-radius: 8px; background: var(--glass); color: var(--t0); font-family: var(--font-body); font-size: 14px; }
+</style>
+
+<div class="section-header" style="margin-bottom: 30px;">
+  <div>
+    <h1 style="font-family:var(--font-heading);font-weight:800;font-size:24px;color:var(--t0);display:flex;align-items:center;gap:12px;">
+      <div style="width:6px;height:24px;background:var(--accent);border-radius:4px;"></div>
+      Your Classes
+    </h1>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <button class="btn" style="background:var(--brand-l);color:white;border:none;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;display:flex;align-items:center;gap:6px;cursor:pointer;" onclick="window.location.href='{{ url_for('teacher.lectures') }}'"><i class="fas fa-plus"></i> Add Subject</button>
+    <div style="width:1px;height:24px;background:var(--b0);margin:0 4px;"></div>
+    <span style="font-size:10px;text-transform:uppercase;font-weight:700;color:var(--t2);">Filter View</span>
+    <select class="form-input" style="width:200px;font-weight:600;" onchange="window.location.href=this.value">
+      {% for s in subjects %}
+      <option value="{{ url_for('teacher.classes', subject_id=s.id) }}" {% if subject and subject.id == s.id %}selected{% endif %}>{{ s.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+</div>
+
+<div class="subject-cards">
+  {% for s in subjects %}
+  {% set colors = ['var(--brand)', '#2DA84F', 'var(--accent)', 'var(--accent)', '#007AFF'] %}
+  {% set c = colors[loop.index0 % colors|length] %}
+  <div class="sub-card">
+    <div style="display:flex;align-items:center;">
+      <div class="sub-icon" style="background:{{ c }};">
+        <i class="fas fa-layer-group"></i>
+      </div>
+      <div class="badge-active">ACTIVE NOW</div>
+      <form action="{{ url_for('teacher.delete_subject', subject_id=s.id) }}" method="POST" style="margin-left:12px;" onsubmit="return confirm('Are you sure you want to delete this subject? All associated student records and attendance will be wiped.');">
+        <button type="submit" style="background:rgba(255,0,0,0.1); color:var(--red); border:none; width:28px; height:28px; border-radius:6px; cursor:pointer; display:flex; align-items:center; justify-content:center;" title="Delete Subject">
+          <i class="fas fa-trash"></i>
+        </button>
+      </form>
+    </div>
+    <div>
+      <div style="font-family:var(--font-heading);font-size:20px;font-weight:800;color:var(--t0);margin-bottom:4px;">{{ s.name }}</div>
+      <div style="font-size:12px;color:var(--t2);font-weight:600;display:flex;gap:16px;">
+        <span><i class="fas fa-users" style="margin-right:4px;"></i> {{ s.class_ref.section if s.class_ref else 'N/A' }}</span>
+        <span><i class="fas fa-calendar" style="margin-right:4px;"></i> {{ s.class_ref.year if s.class_ref else 'N/A' }}</span>
+      </div>
+    </div>
+    <div style="margin-left:auto; display:flex; gap:8px;">
+        <button class="btn bp" onclick="openManage('{{ s.id }}', '{{ s.name|escape }}')"><i class="fas fa-cog"></i> Manage Class</button>
+    </div>
+  </div>
+  {% else %}
+  <div style="grid-column: 1 / -1; text-align:center; padding: 64px 24px; background: white; border-radius: 12px; border: 1px dashed var(--b0);">
+    <div style="font-size: 48px; color: var(--t2); margin-bottom: 16px;"><i class="fas fa-layer-group"></i></div>
+    <h3 style="font-family: var(--font-heading); font-size: 20px; color: var(--t0); margin-bottom: 8px;">No Classes Found</h3>
+    <p style="color: var(--t2); font-size: 14px; margin-bottom: 24px;">You haven't been assigned any subjects or divisions yet. Create one to get started.</p>
+    <a href="{{ url_for('teacher.lectures') }}" class="btn bp"><i class="fas fa-plus"></i> Add Subject / Division</a>
+  </div>
+  {% endfor %}
+</div>
+
+{% if subject %}
+<div class="section-header">
+  <h2 style="font-family:var(--font-heading);font-weight:800;font-size:22px;color:var(--t0);">{{ subject.name }}: Student Attendance</h2>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <button class="btn bs" onclick="openStudentModal()"><i class="fas fa-align-left" style="margin-right:6px;"></i> Manual Entry</button>
+    <div style="display:flex;background:var(--glass);border:1px solid var(--b0);border-radius:8px;padding:4px;">
+      <button style="border:none;background:var(--brand);color:white;width:32px;height:32px;border-radius:6px;cursor:pointer;"><i class="fas fa-border-all"></i></button>
+      <button style="border:none;background:transparent;color:var(--t2);width:32px;height:32px;border-radius:6px;cursor:pointer;"><i class="fas fa-list"></i></button>
+    </div>
+  </div>
+</div>
+
+<div class="student-grid" id="stGrid">
+  {% for st in student_data %}
+  <div class="st-card" id="st-card-{{ st.obj.id }}">
+    <div class="st-photo-col">
+      <div class="st-carousel" id="carousel-{{ st.obj.id }}" {% if not st.photos %}style="flex-direction:column;"{% endif %}>
+        {% if st.photos %}
+          <div class="st-carousel-container">
+            {% for p in st.photos %}
+              <div class="carousel-item {% if loop.index0 == 0 %}active{% endif %}">
+                <img src="{{ url_for('teacher.serve_student_photo', student_id=st.obj.id, filename=p) }}" alt="photo">
+                <button class="remove-photo-btn" onclick="deletePhoto('{{ st.obj.id }}', '{{ p }}')" title="Remove this photo?">
+                  <i class="fas fa-times"></i>
+                </button>
+              </div>
+            {% endfor %}
+          </div>
+          {% if st.photos|length > 1 %}
+            <button class="carousel-btn left" onclick="slideCarousel({{ st.obj.id }}, -1)"><i class="fas fa-chevron-left"></i></button>
+            <button class="carousel-btn right" onclick="slideCarousel({{ st.obj.id }}, 1)"><i class="fas fa-chevron-right"></i></button>
+          {% endif %}
+        {% elif st.obj.has_face_data %}
+            <div style="font-size:40px; color:var(--brand);"><i class="fas fa-user-check"></i></div>
+            <div style="margin-top:8px; background:rgba(0,0,0,0.1); color:var(--t0); font-weight:700; font-size:10px; padding:4px 10px; border-radius:12px; text-align:center;">{{ st.obj.photo_count }} Photos Validated</div>
+        {% else %}
+            <div style="font-size:40px; color:var(--t2);"><i class="fas fa-user"></i></div>
+            <div style="margin-top:8px; background:rgba(255,0,0,0.1); color:var(--red); font-weight:700; font-size:10px; padding:4px 10px; border-radius:12px; text-align:center;">No Face Data</div>
+        {% endif %}
+      </div>
+      <button class="add-photo-btn" onclick="document.getElementById('upload-{{ st.obj.id }}').click()"><i class="fas fa-camera"></i> Add Photo</button>
+      <input type="file" id="upload-{{ st.obj.id }}" style="display:none;" accept="image/*" multiple onchange="uploadStudentPhoto({{ st.obj.id }}, this)">
+    </div>
+    <div class="st-details">
+      <button class="edit-st-btn" onclick="openStudentModal('{{ st.obj.id }}', '{{ st.obj.name|escape }}', '{{ st.obj.student_id|escape }}', '{{ st.obj.roll_number|escape }}', '{{ st.obj.email|escape }}', '{{ st.obj.address|escape }}')" style="display:flex;align-items:center;gap:4px;">
+        <i class="fas fa-pen" style="font-size:10px;"></i> Edit
+      </button>
+      
+      <div style="margin-bottom:4px;">
+        <div class="st-name">{{ st.obj.name }}</div>
+        <div class="st-dept">{{ subject.class_ref.department.name if subject else 'General Department' }}</div>
+      </div>
+      
+      <div class="st-row">
+        <span class="st-label">Student ID</span>
+        <span class="st-val">{{ st.obj.student_id }}</span>
+      </div>
+      <div class="st-row">
+        <span class="st-label">Roll NO</span>
+        <span class="st-val">{{ st.obj.roll_number or '-' }}</span>
+      </div>
+      <div class="st-row">
+        <span class="st-label">Email</span>
+        <span class="st-val" style="font-size:10px; font-family:var(--font-body); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:120px;">{{ st.obj.email or '-' }}</span>
+      </div>
+      <div class="st-row">
+        <span class="st-label">Address</span>
+        <span class="st-val" style="font-weight:500; font-size:10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:120px;">{{ st.obj.address or '-' }}</span>
+      </div>
+      <div class="st-row" style="border-bottom:none; margin-top:4px; align-items:center;">
+        <span class="st-label">Attendance</span>
+        <span class="st-val att">{{ st.pct }}%</span>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div style="grid-column:1/-1; text-align:center; padding:60px; background:var(--glass); border-radius:16px; border:1px solid var(--b0);">
+    <i class="fas fa-users-slash" style="font-size:32px; color:var(--t2); margin-bottom:16px;"></i>
+    <div style="font-family:var(--font-heading); font-size:18px; font-weight:700; color:var(--t0);">No Students Yet</div>
+    <div style="font-size:13px; color:var(--t1);">Click "Manage Class" above to import your student CSV dataset to begin.</div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Pagination -->
+{% if student_data|length > 6 %}
+<div id="paginationControls" style="display:flex; align-items:center; justify-content:center; gap:8px; margin-top:20px; font-family:var(--font-heading);">
+  <button onclick="changePage(-1)" id="prevBtn" style="border:none; background:var(--bg2); color:var(--t1); width:36px; height:36px; border-radius:8px; cursor:pointer; font-size:14px;" disabled><i class="fas fa-chevron-left"></i></button>
+  <div id="pageNumbers" style="display:flex; gap:4px;"></div>
+  <button onclick="changePage(1)" id="nextBtn" style="border:none; background:var(--bg2); color:var(--t1); width:36px; height:36px; border-radius:8px; cursor:pointer; font-size:14px;"><i class="fas fa-chevron-right"></i></button>
+  <span style="margin-left:12px; font-size:12px; color:var(--t2);">{{ student_data|length }} students</span>
+</div>
+<script>
+(function() {
+  const PER_PAGE = 6;
+  const cards = Array.from(document.querySelectorAll('#stGrid .st-card'));
+  const totalPages = Math.ceil(cards.length / PER_PAGE);
+  let currentPage = 1;
+
+  function renderPage(page) {
+    currentPage = page;
+    cards.forEach((c, i) => {
+      c.style.display = (i >= (page-1)*PER_PAGE && i < page*PER_PAGE) ? '' : 'none';
+    });
+    document.getElementById('prevBtn').disabled = page <= 1;
+    document.getElementById('nextBtn').disabled = page >= totalPages;
+    // Render page number buttons
+    const pn = document.getElementById('pageNumbers');
+    pn.innerHTML = '';
+    for(let i = 1; i <= totalPages; i++) {
+      const btn = document.createElement('button');
+      btn.textContent = i;
+      btn.onclick = () => renderPage(i);
+      btn.style.cssText = `border:none; width:36px; height:36px; border-radius:8px; cursor:pointer; font-weight:700; font-size:13px; ${i === page ? 'background:var(--brand);color:#fff;' : 'background:var(--bg2);color:var(--t1);'}`;
+      pn.appendChild(btn);
+    }
+  }
+  window.changePage = function(dir) { renderPage(currentPage + dir); };
+  renderPage(1);
+})();
+</script>
+{% endif %}
+
+{% endif %}
+
+<!-- Manage Class Modal -->
+<div class="modal-overlay" id="manageModal" onclick="if(event.target===this) toggleModal('manageModal')">
+  <div class="modal-box">
+    <div class="modal-header" id="manage-header" style="background:var(--brand);">
+      <button class="modal-close" onclick="toggleModal('manageModal')" style="top:20px;"><i class="fas fa-xmark"></i></button>
+    </div>
+    <div class="modal-body" id="manageBody" style="padding:0;">
+      <!-- Body dynamically loaded -->
+    </div>
+  </div>
+</div>
+
+<!-- Date Range Export Modal -->
+<div class="modal-overlay" id="exportModal" onclick="if(event.target===this) toggleModal('exportModal')">
+  <div class="modal-box" style="width:360px;">
+    <div class="modal-header" style="background:linear-gradient(135deg, var(--accent), var(--accent)); padding:16px 20px;">
+      <button class="modal-close" onclick="toggleModal('exportModal')" style="top:12px;"><i class="fas fa-xmark"></i></button>
+      <div class="modal-title" style="font-size:18px;">Export Records</div>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">From Date</label>
+        <input type="date" class="form-input" id="exFrom">
+      </div>
+      <div class="form-group">
+        <label class="form-label">To Date</label>
+        <input type="date" class="form-input" id="exTo">
+      </div>
+      <button class="btn bp" style="width:100%; margin-top:10px; background:var(--accent); color:white; border:none;" onclick="triggerExport()">Download CSV</button>
+    </div>
+  </div>
+</div>
+
+<!-- Student Edit/Add Modal -->
+<div class="modal-overlay" id="stModal" onclick="if(event.target===this) toggleModal('stModal')">
+  <div class="modal-box">
+    <div class="modal-header">
+      <button class="modal-close" onclick="toggleModal('stModal')"><i class="fas fa-xmark"></i></button>
+      <div class="modal-title" id="stModalTitle">Add Manual Entry</div>
+      <div class="modal-sub">Enter student details directly.</div>
+    </div>
+    <form class="modal-body" method="POST" id="stForm">
+      <div id="stModalPhotos" style="margin-bottom:20px; display:none;">
+        <label class="form-label">Uploaded Photos</label>
+        <div class="st-carousel" id="modalCarousel" style="height:180px; margin-top:8px;">
+           <!-- Dynamic content -->
+        </div>
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label">Full Name</label>
+        <input type="text" class="form-input" name="name" id="stName" required placeholder="Arjun Sharma">
+      </div>
+      
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+        <div class="form-group">
+          <label class="form-label">Student ID</label>
+          <input type="text" class="form-input" name="student_id" id="stId" required placeholder="DS01">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Roll Number</label>
+          <input type="text" class="form-input" name="roll_number" id="stRoll" placeholder="58">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Email Address</label>
+        <input type="email" class="form-input" name="email" id="stEmail" placeholder="student@gmail.com">
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label">Address</label>
+        <input type="text" class="form-input" name="address" id="stAddress" placeholder="City, State">
+      </div>
+      
+      <button type="submit" class="btn bp" style="width:100%; margin-top:10px;" id="stSubmitBtn">Create Entry</button>
+    </form>
+  </div>
+</div>
+
+<script>
+let currentSubjectId = null;
+
+function toggleModal(id) {
+  const m = document.getElementById(id);
+  if(m.classList.contains('active')) m.classList.remove('active');
+  else m.classList.add('active');
+}
+
+async function openManage(sid, sname) {
+    currentSubjectId = sid;
+    let manageBody = document.getElementById('manageBody');
+    manageBody.innerHTML = '<div style="padding:48px;text-align:center;color:var(--brand);"><i class="fas fa-spinner fa-spin fa-2x"></i></div>';
+    toggleModal('manageModal');
+
+    try {
+      const res = await fetch(`/teacher/api/subject_divisions/${sid}`);
+      const data = await res.json();
+      
+      let divisionsHtml = '';
+      data.divisions.forEach(div => {
+         divisionsHtml += `
+         <div style="border:1px solid #e0e0e0; border-radius:8px; padding:12px 16px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+           <div style="font-weight:600; color:var(--t0);">${div.name}</div>
+           <form action="/teacher/delete_subject/${div.subject_id}" method="POST" onsubmit="return confirm('Delete this division completely?');" style="margin:0;">
+             <button type="submit" style="background:transparent;border:none;color:var(--red);cursor:pointer;" title="Delete Division"><i class="fas fa-trash"></i></button>
+           </form>
+         </div>
+         `;
+      });
+
+      let html = `
+        <div style="padding:24px; background:var(--brand);">
+          <div style="font-size:10px; font-weight:700; letter-spacing:1px; color:rgba(255,255,255,0.7); text-transform:uppercase; border:1px solid rgba(255,255,255,0.3); border-radius:4px; padding:2px 8px; display:inline-block; margin-bottom:8px;">DEPARTMENT VIEW</div>
+          <div style="font-size:24px; font-weight:800; margin-bottom:4px; color:white;">${data.department_name}</div>
+          <div style="font-size:14px; opacity:0.8; margin-bottom:8px; color:rgba(255,255,255,0.8);">Configure class details and records for ${data.subject_name}</div>
+        </div>
+        <div style="padding:24px; background:white; color:var(--t0); flex:1; overflow-y:auto; border-radius: 0 0 16px 16px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <div style="font-weight:800; font-size:12px; color:var(--t1); text-transform:uppercase; letter-spacing:1px;">MANAGE DIVISIONS</div>
+            <a href="/teacher/lectures" style="background:transparent; border:none; color:var(--t1); font-weight:700; font-size:12px; cursor:pointer; text-decoration:none;"><i class="fas fa-plus"></i> CREATE DIVISION</a>
+          </div>
+          <div style="margin-bottom:24px;">
+             ${divisionsHtml}
+          </div>
+          
+          <div style="border:1px dashed #ccc; border-radius:12px; padding:32px 16px; text-align:center; margin-bottom:24px; background:#f9f9f9;">
+            <div style="width:40px;height:40px;border-radius:50%;background:white;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;box-shadow:0 4px 12px rgba(0,0,0,0.05);color:var(--brand);font-size:16px;">
+              <i class="fas fa-file-import"></i>
+            </div>
+            <div style="font-size:16px; font-weight:700; margin-bottom:8px;">Batch Import Students</div>
+            <div style="font-size:13px; color:var(--t2); margin-bottom:16px;">Upload a CSV or Excel (.xlsx) file with columns: <strong>student_id, name, email</strong></div>
+            <form action="/teacher/classes/${sid}/import-csv" method="POST" enctype="multipart/form-data">
+              <input type="file" name="csv_file" accept=".csv,.xlsx" required style="display:none;" id="csv-upload-${sid}" onchange="this.form.submit()">
+              <button type="button" class="btn primary" style="background:#E63946; border:none; border-radius:8px; width:100%; color:white;" onclick="document.getElementById('csv-upload-${sid}').click()">
+                <i class="fas fa-upload" style="margin-right:8px;"></i> Import CSV / Excel
+              </button>
+            </form>
+          </div>
+          <div style="text-align:center; font-size:10px; font-weight:700; color:var(--t2); letter-spacing:1px;"><span style="color:red; margin-right:4px;">●</span> SMARTSYNC ENGINE ACTIVE</div>
+        </div>
+      `;
+      manageBody.innerHTML = html;
+    } catch(err) {
+      manageBody.innerHTML = '<div style="padding:24px;background:white;">Failed to load divisions</div>';
+    }
+}
+
+function openExportModal() {
+  toggleModal('manageModal');
+  setTimeout(() => toggleModal('exportModal'), 300);
+}
+
+function triggerExport() {
+  const f = document.getElementById('exFrom').value;
+  const t = document.getElementById('exTo').value;
+  if(!f || !t) { alert('Please select both dates'); return; }
+  window.location.href = `/teacher/records/export?subject_id=${currentSubjectId}&from=${f}&to=${t}`;
+  toggleModal('exportModal');
+}
+
+async function openStudentModal(id='', name='', sid='', roll='', email='', addr='') {
+  document.getElementById('stModalTitle').innerText = id ? 'Edit Student' : 'Add Manual Entry';
+  document.getElementById('stName').value = name;
+  document.getElementById('stId').value = sid;
+  document.getElementById('stRoll').value = roll;
+  document.getElementById('stEmail').value = email;
+  document.getElementById('stAddress').value = addr;
+  document.getElementById('stSubmitBtn').innerText = id ? 'Save Changes' : 'Create Entry';
+  
+  const photoSection = document.getElementById('stModalPhotos');
+  const modalCarousel = document.getElementById('modalCarousel');
+  
+  if (id) {
+    document.getElementById('stForm').action = `/teacher/classes/edit-student/${id}`;
+    
+    // Fetch photos
+    const res = await fetch(`/teacher/student_photos/${id}`);
+    const data = await res.json();
+    
+    if (data.photos && data.photos.length > 0) {
+      photoSection.style.display = 'block';
+      let carouselHtml = '<div class="st-carousel-container">';
+      data.photos.forEach((p, i) => {
+        carouselHtml += `
+          <div class="carousel-item ${i === 0 ? 'active' : ''}">
+            <img src="/teacher/student_photo/${id}/${p}" alt="photo">
+            <button type="button" class="remove-photo-btn" onclick="deletePhoto('${id}', '${p}')" title="Remove this photo?">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+        `;
+      });
+      carouselHtml += '</div>';
+      if (data.photos.length > 1) {
+        carouselHtml += `
+          <button type="button" class="carousel-btn left" onclick="slideCarousel('modalCarousel', -1, true)"><i class="fas fa-chevron-left"></i></button>
+          <button type="button" class="carousel-btn right" onclick="slideCarousel('modalCarousel', 1, true)"><i class="fas fa-chevron-right"></i></button>
+        `;
+      }
+      modalCarousel.innerHTML = carouselHtml;
+    } else {
+      photoSection.style.display = 'none';
+    }
+  } else {
+    document.getElementById('stForm').action = `{{ url_for('teacher.add_student', subject_id=subject.id) if subject else '#' }}`;
+    photoSection.style.display = 'none';
+  }
+  toggleModal('stModal');
+}
+
+function slideCarousel(id, dir, isId=false) {
+  const c = isId ? document.getElementById(id) : document.getElementById('carousel-'+id);
+  const items = c.querySelectorAll('.carousel-item');
+  if(!items.length) return;
+  let activeIdx = 0;
+  items.forEach((item, i) => { if(item.classList.contains('active')) activeIdx = i; });
+  items[activeIdx].classList.remove('active');
+  let nextIdx = activeIdx + dir;
+  if(nextIdx < 0) nextIdx = items.length - 1;
+  if(nextIdx >= items.length) nextIdx = 0;
+  items[nextIdx].classList.add('active');
+}
+
+function deletePhoto(sid, filename) {
+  if (!confirm('Remove this photo?')) return;
+  
+  fetch(`/teacher/classes/delete-photo/${sid}/${filename}`, { method: 'POST' })
+  .then(r => r.json())
+  .then(d => {
+    if (d.success) {
+      window.location.reload();
+    } else {
+      alert(d.error || 'Failed to delete photo');
+    }
+  });
+}
+
+function uploadStudentPhoto(sid, input) {
+  if(!input.files || !input.files.length) return;
+  const fd = new FormData();
+  for(let i=0; i<input.files.length; i++) fd.append('photos', input.files[i]);
+  
+  fetch(`/teacher/classes/upload-photo/${sid}`, { method:'POST', body:fd })
+  .then(r=>r.json())
+  .then(d=>{ if(d.success) window.location.reload(); });
+}
+window.addEventListener('load', function() {
+    const params = new URLSearchParams(window.location.search);
+    const highlightIds = params.get('highlight');
+    if (highlightIds) {
+        const ids = highlightIds.split(',');
+        ids.forEach(id => {
+            const card = document.getElementById('st-card-' + id);
+            if (card) {
+                card.classList.add('newly-added');
+                setTimeout(() => {
+                    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 300);
+            }
+        });
+        // Remove the highlight param from URL for clean look
+        setTimeout(() => {
+            const newUrl = window.location.pathname + window.location.search.replace(/&?highlight=[^&]*/, '').replace(/\?$/, '');
+            window.history.replaceState({}, document.title, newUrl);
+        }, 3000);
+    }
+});
+</script>
+{% endblock %}

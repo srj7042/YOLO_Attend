@@ -1,0 +1,426 @@
+{% extends "base.html" %}
+{% block title %}Approvals — Admin Center{% endblock %}
+
+{% block content %}
+<style>
+/* New Aesthetic Base */
+body { background: var(--bg0); }
+h2 { font-family: var(--font-heading); font-size: 24px; font-weight: 800; color: var(--brand); margin: 0; }
+.text-sub { font-size: 13px; color: var(--t2); font-family: var(--font-body); }
+
+/* Table Section */
+.log-card { background: var(--bg2); border-radius: 20px; overflow: hidden; padding: 24px; margin-bottom: 48px; border: 1px solid var(--b0); }
+.log-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 24px; }
+.styled-table { width: 100%; border-collapse: collapse; text-align: left; }
+.styled-table th { background: rgba(0,0,0,0.03); padding: 14px 20px; font-size: 11px; font-weight: 800; color: var(--t2); text-transform: uppercase; letter-spacing: 1px; }
+.styled-table th:first-child { border-top-left-radius: 12px; border-bottom-left-radius: 12px; }
+.styled-table th:last-child { border-top-right-radius: 12px; border-bottom-right-radius: 12px; text-align: right; }
+.styled-table td { padding: 16px 20px; border-bottom: 1px solid #F5F5F5; vertical-align: middle; }
+.styled-table tr:last-child td { border-bottom: none; }
+
+.t-profile { display: flex; align-items: center; gap: 16px; }
+.t-avatar { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; background: var(--bg3); }
+.t-name { font-family: var(--font-heading); font-size: 16px; font-weight: 700; color: var(--t0); margin-bottom: 2px;}
+.t-id { font-size: 11px; color: var(--t2); font-family: var(--font-mono); }
+.t-dept { font-size: 14px; color: var(--t1); font-weight: 500; }
+
+.btn-reject { background: transparent; border: 1px solid var(--b0); color: var(--t1); padding: 10px 20px; border-radius: 20px; font-weight: 600; font-size: 13px; cursor: pointer; transition: 0.2s; }
+.btn-reject:hover { background: var(--bg1)5F5; color: #D32F2F; border-color: #D32F2F; }
+.btn-approve { background: var(--brand); color: #FFF; border: none; padding: 10px 24px; border-radius: 20px; font-weight: 700; font-size: 13px; cursor: pointer; transition: 0.2s; margin-left: 8px; }
+.btn-approve:hover { background: var(--brand-l); box-shadow: 0 4px 12px rgba(74,20,140,0.3); }
+
+/* Card Grid Section */
+.filter-tabs { display: flex; background: var(--bg1); border-radius: 20px; padding: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+.filter-tab { padding: 8px 24px; border-radius: 16px; font-size: 13px; font-weight: 700; color: var(--t1); cursor: pointer; transition: 0.2s; }
+.filter-tab.active { background: var(--bg0); color: var(--brand-l); box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+
+.grid-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 24px; margin-top: 32px; }
+.subj-card { background: var(--bg1); border-radius: 20px; padding: 24px; box-shadow: 0 8px 24px rgba(0,0,0,0.04); border: 1px solid var(--b0); transition: transform 0.2s; display: flex; flex-direction: column; }
+.subj-card:hover { transform: translateY(-4px); box-shadow: 0 12px 32px rgba(0,0,0,0.08); }
+.subj-card.active-review { border: 1.5px solid var(--brand); background: var(--bg0); }
+
+.card-top { display: flex; gap: 16px; margin-bottom: 24px; border-bottom: 1px solid #F5F5F5; padding-bottom: 20px; }
+.status-badge { display: inline-block; font-size: 9px; font-weight: 800; padding: 4px 10px; border-radius: 12px; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+.badge-orange { background: var(--bg1)3E0; color: var(--accent); }
+.badge-solid-orange { background: var(--accent); color: #FFF; }
+
+.card-data-row { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 13px; }
+.card-data-label { color: var(--t2); font-weight: 500; }
+.card-data-val { color: var(--t0); font-weight: 700; font-family: var(--font-mono); }
+
+.btn-schedule { width: 100%; border: 1px solid var(--b0); background: transparent; padding: 14px; border-radius: 12px; color: var(--brand); font-weight: 700; font-size: 14px; cursor: pointer; transition: 0.2s; margin-top: auto; }
+.btn-schedule:hover { border-color: var(--brand); background: rgba(74,20,140,0.03); }
+.subj-card.active-review .btn-schedule { background: var(--brand); color: #FFF; border-color: var(--brand); }
+
+/* MODALS */
+.v-modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(20, 10, 30, 0.4); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 9999; opacity: 0; pointer-events: none; transition: 0.3s; }
+.v-modal-overlay.active { opacity: 1; pointer-events: auto; }
+.v-modal { background: var(--bg1); border-radius: 24px; width: 850px; max-width: 95%; max-height: 90vh; overflow-y: auto; box-shadow: 0 24px 48px rgba(0,0,0,0.2); transform: translateY(20px); transition: 0.4s; display: flex; flex-direction: column; }
+.v-modal-overlay.active .v-modal { transform: translateY(0); }
+
+.v-header { padding: 32px; border-bottom: 1px solid var(--b0); display: flex; gap: 20px; align-items: center; position: relative; }
+.v-icon { width: 56px; height: 56px; background: var(--glass2); color: var(--brand); border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 24px; }
+.v-close { position: absolute; top: 32px; right: 32px; background: var(--bg2); border: none; width: 36px; height: 36px; border-radius: 50%; font-size: 14px; color: var(--t1); cursor: pointer; transition: 0.2s; }
+.v-close:hover { background: #E0E0E0; }
+
+.v-body { display: flex; padding: 32px; gap: 32px; flex-wrap: wrap; }
+.v-left { width: 260px; flex-shrink: 0; display: flex; flex-direction: column; gap: 20px; }
+.overview-box { background: var(--bg0); border-radius: 16px; padding: 24px; }
+.ov-title { font-size: 10px; font-weight: 800; color: var(--brand); letter-spacing: 1px; margin-bottom: 20px; text-transform: uppercase; }
+.ov-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; font-size: 13px; font-weight: 500; color: var(--t1); }
+.ov-num { font-size: 18px; font-weight: 800; color: var(--brand); font-family: var(--font-mono); }
+.ov-num.orange { color: var(--accent); }
+.ov-bar { height: 6px; background: #E0E0E0; border-radius: 3px; overflow: hidden; display: flex; }
+.ov-fill { width: 66%; background: #9E6C2D; }
+
+.inst-box { border: 1px solid var(--b0); border-radius: 16px; padding: 24px; }
+.inst-title { font-size: 14px; font-weight: 800; color: var(--t0); margin-bottom: 8px; }
+.inst-desc { font-size: 12px; color: var(--t2); line-height: 1.6; }
+
+.v-right { flex: 1; min-width: 300px; display: flex; flex-direction: column; }
+.cal-head-ui { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; font-family: var(--font-heading); font-weight: 700; font-size: 16px; color: var(--t0); }
+.cal-arrows i { margin-left: 16px; color: var(--t0); cursor: pointer; font-size: 12px; }
+
+.m-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 12px; }
+.m-head { text-align: center; font-size: 10px; font-weight: 800; color: var(--t0); margin-bottom: 8px; }
+.m-cell { height: 64px; border: 1px solid var(--b0); border-radius: 12px; padding: 8px; font-size: 12px; font-weight: 500; color: #CCC; position: relative; display: flex; flex-direction: column; transition: 0.2s; }
+.m-cell.active-req { border: 2px solid var(--brand); color: var(--brand); font-weight: 800; cursor: pointer; }
+.m-cell.active-req:hover { background: var(--bg0); }
+
+.act-btns { position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); display: flex; gap: 4px; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
+.m-cell.active-req:hover .act-btns, .m-cell.active-req.decided .act-btns { opacity: 1; pointer-events: auto; bottom: 8px;}
+.abtn { width: 24px; height: 24px; border-radius: 6px; border: none; color: #FFF; display: flex; align-items: center; justify-content: center; font-size: 10px; cursor: pointer; transition: 0.2s; }
+.abtn-rej { background: #D32F2F; }
+.abtn-app { background: var(--brand); }
+.abtn:hover { transform: scale(1.1); box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+
+.v-footer { background: var(--bg0); padding: 24px 32px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--b0); margin-top: auto; }
+.btn-cancel { background: var(--bg1); border: 1px solid var(--b0); color: var(--t0); padding: 14px 28px; border-radius: 16px; font-weight: 700; font-size: 14px; cursor: pointer; }
+.btn-confirm { background: var(--brand); border: none; color: #FFF; padding: 14px 32px; border-radius: 16px; font-weight: 700; font-size: 14px; cursor: pointer; box-shadow: 0 4px 16px rgba(74,20,140,0.2); transition: 0.2s; }
+.btn-confirm:hover { background: var(--brand-l); }
+</style>
+
+<!-- Top Layout -->
+<div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 40px;">
+  <div>
+    <span style="font-size:12px; font-weight:800; color:var(--brand); display:block; margin-bottom:4px; letter-spacing:1px; text-transform:uppercase;">Admin Command Center</span>
+    <h2>Approvals log</h2>
+  </div>
+</div>
+
+<!-- SECTION 1: Teacher Log Approvals -->
+<div class="log-card">
+  <div class="log-header">
+    <h2 style="font-size: 20px;">Teacher Log Approvals</h2>
+    <span style="font-size: 13px; font-weight: 600; color: var(--t2);">{{ pending_teachers|length }} Pending Verifications</span>
+  </div>
+  
+  <table class="styled-table">
+    <thead>
+      <tr>
+        <th>Teacher Profile</th>
+        <th>Department</th>
+        <th>Experience</th>
+        <th>Status Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% if pending_teachers|length > 0 %}
+        {% for t in pending_teachers %}
+        <tr>
+          <td>
+            <div class="t-profile">
+              <div class="t-avatar" style="color:white; background:#4A148C; display:flex; align-items:center; justify-content:center; font-family:var(--font-heading); font-size:18px;">
+                {{ t.name[:2]|upper if t.name else 'T' }}
+              </div>
+              <div>
+                <div class="t-name">{{ t.name }}</div>
+                <div class="t-id">Employee ID: {{ t.employee_id }}</div>
+              </div>
+            </div>
+          </td>
+          <td class="t-dept">{{ t.department }}</td>
+          <td class="t-dept">New Sign-up</td>
+          <td style="text-align: right;">
+            <form method="POST" style="display:inline-block;">
+                <input type="hidden" name="req_type" value="teacher">
+                <input type="hidden" name="teacher_id" value="{{ t.id }}">
+                <button type="submit" name="action" value="reject" class="btn-reject">Reject</button>
+            </form>
+            <form method="POST" style="display:inline-block;">
+                <input type="hidden" name="req_type" value="teacher">
+                <input type="hidden" name="teacher_id" value="{{ t.id }}">
+                <button type="submit" name="action" value="approve" class="btn-approve">Approve</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      {% else %}
+        <tr>
+          <td colspan="4" style="text-align:center; padding: 32px; color: #888;">
+             No pending teacher verifications.
+          </td>
+        </tr>
+      {% endif %}
+    </tbody>
+  </table>
+</div>
+
+<!-- SECTION 1.1: Decision History -->
+<div class="log-card">
+  <div class="log-header">
+    <h2 style="font-size: 20px;">Verification History</h2>
+  </div>
+  
+  <table class="styled-table">
+    <thead>
+      <tr>
+        <th>User</th>
+        <th>Department</th>
+        <th>Decision</th>
+        <th>Date</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% set all_teachers = history_teachers|default([]) %}
+      {% if all_teachers|length > 0 %}
+        {% for t in all_teachers %}
+        <tr>
+          <td>{{ t.name }}</td>
+          <td>{{ t.department }}</td>
+          <td>
+            <span class="badge {{ 'bag' if t.is_active_account else 'bar' }}">
+              {{ 'Approved' if t.is_active_account else 'Rejected' }}
+            </span>
+          </td>
+          <td style="font-size:11px; color:var(--t2);">{{ t.created_at.strftime('%Y-%m-%d') if t.created_at else 'N/A' }}</td>
+        </tr>
+        {% endfor %}
+      {% else %}
+        <tr><td colspan="4" style="text-align:center; padding:20px; color:#888;">No history yet.</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+</div>
+
+<!-- SECTION 2: Subject & Lecture Approvals -->
+<div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 24px;">
+  <div style="max-width: 500px;">
+    <h2>Subject &amp; Lecture Approvals</h2>
+    <div class="text-sub" style="margin-top: 8px;">Review individual lecture requests and scheduling slots from faculty members.</div>
+  </div>
+  
+  <div class="filter-tabs">
+    <div class="filter-tab active">All Years</div>
+  </div>
+</div>
+
+<div class="grid-cards">
+  <!-- Dynamic Rendering of Real Pending Approvals -->
+  {% if pending|length > 0 %}
+    {% for req in pending %}
+    <div class="subj-card">
+      <div class="card-top">
+        <div class="t-avatar" style="color:white; background:var(--brand); display:flex; align-items:center; justify-content:center; font-family:var(--font-heading); font-size:18px;">
+            {{ req.teacher.name[:2]|upper if req.teacher and req.teacher.name else 'XX' }}
+        </div>
+        <div>
+          <span class="status-badge badge-orange">Pending Step 1</span>
+          <div class="t-name">{{ req.teacher.name if req.teacher else 'Unknown' }}</div>
+          <div class="t-id">Dept: {{ req.teacher.department if req.teacher.department else 'General' }}</div>
+        </div>
+      </div>
+      
+      <div style="margin-bottom: 24px;">
+        <div class="card-data-row">
+          <span class="card-data-label">Subject</span>
+          <span class="card-data-val">{{ req.subject.name if req.subject else 'Unassigned' }}</span>
+        </div>
+        <div class="card-data-row">
+          <span class="card-data-label">Code</span>
+          <span class="card-data-val">{{ req.subject.code if req.subject else 'N/A' }}</span>
+        </div>
+        <div class="card-data-row">
+          <span class="card-data-label">Year / Div</span>
+          <span class="card-data-val">{{ req.class_ref.year|default('TY') }} / {{ req.class_ref.section|default('A') }}</span>
+        </div>
+      </div>
+      
+      <!-- Actual dynamic approve button -->
+      <button class="btn-schedule" onclick="openReviewModal('{{ req.id }}', '{{ req.teacher.name|escape if req.teacher else 'Unknown' }}', '{{ req.subject.name|escape if req.subject else 'Subject' }}', '{{ req.subject.code|escape if req.subject else '000' }}', '{{ req.class_ref.year|default('TY')|escape }} - Div {{ req.class_ref.section|default('A')|escape }}')">
+        <i class="fas fa-calendar-alt" style="margin-right: 8px;"></i> Approve Lectures
+      </button>
+      
+      <!-- Hidden form for actual submission logic mapped to previous python route -->
+      <form id="approve-form-{{ req.id }}" method="POST" style="display:none;">
+        <input type="hidden" name="request_id" value="{{ req.id }}">
+        <input type="hidden" name="action" value="approve">
+      </form>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div style="grid-column: 1 / -1; text-align: center; padding: 48px; color: #888; background: #FFF; border-radius: 20px; border: 1px dashed #E0E0E0;">
+        No pending subject & lecture requests.
+    </div>
+  {% endif %}
+</div>
+
+
+<!-- THE INTERACTIVE VERIFICATION MODAL ENGINE -->
+<div class="v-modal-overlay" id="vModal" onclick="if(event.target===this) toggleModal()">
+  <div class="v-modal">
+    <div class="v-header">
+      <div class="v-icon"><i class="fas fa-calendar-check"></i></div>
+      <div>
+        <h2 id="vmTitle" style="font-size: 22px; color: var(--t0);">Review Lecture Schedule - David Chen</h2>
+        <div class="text-sub" id="vmSub">Quantum Computing (QC-301-D) • BTech - Div A</div>
+      </div>
+      <button class="v-close" onclick="toggleModal()"><i class="fas fa-xmark"></i></button>
+    </div>
+    
+    <div class="v-body">
+      <!-- Left Info Dash -->
+      <div class="v-left">
+        <div class="overview-box">
+          <div class="ov-title">Selection Overview</div>
+          <div class="ov-row"><span>Pending Review</span><span class="ov-num orange" id="vmPen">--</span></div>
+          <div class="ov-bar"><div class="ov-fill"></div></div>
+        </div>
+        <div class="inst-box">
+          <div class="inst-title">Instructions</div>
+          <div class="inst-desc">Review the selected dates on the calendar. Click the checkmark to approve or cross to reject individual slots.</div>
+        </div>
+      </div>
+      
+      <!-- Right Interactive Calendar -->
+      <div class="v-right">
+        <div class="cal-head-ui">
+          <span id="calMonthLabel">--</span>
+          <div class="cal-arrows"><i class="fas fa-chevron-left"></i> <i class="fas fa-chevron-right"></i></div>
+        </div>
+        <div class="m-grid" id="mGridRender">
+          <div class="m-head" style="color:#aaa;">MON</div>
+          <div class="m-head" style="color:#aaa;">TUE</div>
+          <div class="m-head" style="color:#aaa;">WED</div>
+          <div class="m-head" style="color:#aaa;">THU</div>
+          <div class="m-head" style="color:#aaa;">FRI</div>
+          <div class="m-head" style="color:var(--t0);">SAT</div>
+          <div class="m-head" style="color:var(--t0);">SUN</div>
+          <!-- Javascript Injected -->
+        </div>
+      </div>
+    </div>
+    
+    <div class="v-footer">
+      <a href="#" style="font-size: 13px; font-weight: 700; color: var(--t1); text-decoration: none;" onclick="resetCalOpts()">Reset Selection</a>
+      <div style="display:flex; gap: 16px;">
+        <button class="btn-cancel" onclick="toggleModal()">Cancel</button>
+        <button class="btn-confirm" onclick="processApproval()">Confirm Approvals</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Logic Mechanisms
+let currentReqId = null;
+
+function verifyTeacher(btn) {
+  const row = btn.closest('tr');
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+  setTimeout(() => { row.remove(); }, 600);
+}
+
+function toggleModal() {
+  const m = document.getElementById('vModal');
+  m.classList.toggle('active');
+}
+
+function openReviewModal(reqId, tName, sName, sCode, classDet) {
+  currentReqId = reqId;
+  document.getElementById('vmTitle').innerText = `Review Lecture Schedule - ${tName}`;
+  document.getElementById('vmSub').innerText = `${sName} (${sCode}) • ${classDet}`;
+  
+  // Render Dynamic Grid
+  const grid = document.getElementById('mGridRender');
+  
+  // Wipe old rows, keeping only the MON-SUN headers (first 7 elements)
+  while(grid.children.length > 7) {
+    grid.removeChild(grid.lastChild);
+  }
+  
+  // Generate dynamic calendar for the current month
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  document.getElementById('calMonthLabel').textContent = monthNames[month] + ' ' + year;
+  const firstDow = (new Date(year, month, 1).getDay() + 6) % 7; // Mon=0
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  
+  // Pick a few sample active dates (spread across the month)
+  const activeDays = [];
+  for (let d = 3; d <= daysInMonth; d += 5) activeDays.push(d);
+  
+  let calHtml = '';
+  for (let i = 0; i < firstDow; i++) calHtml += '<div class="m-cell"></div>';
+  for (let d = 1; d <= daysInMonth; d++) {
+    if (activeDays.includes(d)) {
+      calHtml += `<div class="m-cell active-req" data-state="pending">${d}<div class="act-btns"><button class="abtn abtn-rej" onclick="decideDate(this, 'reject')"><i class="fas fa-xmark"></i></button><button class="abtn abtn-app" onclick="decideDate(this, 'approve')"><i class="fas fa-check"></i></button></div></div>`;
+    } else {
+      calHtml += `<div class="m-cell">${d}</div>`;
+    }
+  }
+  const totalCells = Math.ceil((firstDow + daysInMonth) / 7) * 7;
+  for (let i = firstDow + daysInMonth; i < totalCells; i++) calHtml += '<div class="m-cell"></div>';
+  grid.innerHTML += calHtml;
+  
+  document.getElementById('vmPen').textContent = activeDays.length.toString().padStart(2, '0');
+
+  resetCalOpts();
+  toggleModal();
+}
+
+function decideDate(btn, action) {
+  const cell = btn.closest('.m-cell');
+  cell.classList.add('decided');
+  if(action === 'approve') {
+    cell.style.background = 'var(--brand)';
+    cell.style.color = 'white';
+    btn.parentElement.innerHTML = '<span style="font-size:10px; color:white;"><i class="fas fa-check"></i></span>';
+  } else {
+    cell.style.background = '#FFF5F5';
+    cell.style.borderColor = '#D32F2F';
+    cell.style.color = '#D32F2F';
+    btn.parentElement.innerHTML = '<span style="font-size:10px; color:#D32F2F;"><i class="fas fa-xmark"></i></span>';
+  }
+  
+  // update UI counter
+  let cur = parseInt(document.getElementById('vmPen').innerText) - 1;
+  if(cur < 0) cur = 0;
+  document.getElementById('vmPen').innerText = cur.toString().padStart(2, '0');
+}
+
+function resetCalOpts() {
+  document.getElementById('vmPen').innerText = document.querySelectorAll('.active-req').length.toString().padStart(2, '0');
+  document.querySelectorAll('.active-req').forEach(el => {
+    el.classList.remove('decided');
+    el.style.background = '';
+    el.style.color = '';
+    el.style.borderColor = '';
+    let day = el.childNodes[0].nodeValue; // keep text node
+    el.innerHTML = `${day}<div class="act-btns"><button class="abtn abtn-rej" onclick="decideDate(this, 'reject')"><i class="fas fa-xmark"></i></button><button class="abtn abtn-app" onclick="decideDate(this, 'approve')"><i class="fas fa-check"></i></button></div>`;
+  });
+}
+
+function processApproval() {
+  // Check if it's a real database DB ID or mock ID
+  const form = document.getElementById(`approve-form-${currentReqId}`);
+  if(form) {
+      form.submit();
+  } else {
+      toggleModal();
+  }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,295 @@
+{% extends "base.html" %}
+{% block title %}Sign Up — SmartAttend Admin{% endblock %}
+{% block content %}
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@500;600;700;800&display=swap');
+
+:root {
+  --primary: var(--accent); /* Admin color scheme */
+  --primary-dark: #A04000;
+  --bg-light: #FDFEFE;
+  --text-main: #1A1025;
+  --text-muted: #4A3D5C;
+  --input-bg: #F8F9F9;
+  --font-heading: 'Manrope', sans-serif;
+  --font-body: 'Inter', sans-serif;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-body);
+  background: var(--bg-light);
+  color: var(--text-main);
+}
+
+.login-wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: stretch;
+}
+
+/* Left Side - Hero */
+.login-left {
+  flex: 1;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  padding: 60px 40px;
+  background-color: var(--primary);
+  background: linear-gradient(145deg, #E67E22 0%, var(--accent) 50%, #A04000 100%);
+  color: #fff;
+  position: relative;
+  overflow: hidden;
+}
+
+.brand-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 40px;
+}
+
+.brand-mark {
+  width: 32px;
+  height: 32px;
+  background: var(--bg1);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.brand-name {
+  font-family: var(--font-heading);
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: #fff;
+}
+
+.hero-title {
+  font-family: var(--font-heading);
+  font-size: 44px;
+  font-weight: 800;
+  line-height: 1.2;
+  margin-bottom: 24px;
+  color: #fff;
+}
+
+.hero-subtitle {
+  font-size: 15px;
+  color: rgba(255,255,255,0.8);
+  line-height: 1.6;
+  margin-bottom: 48px;
+  font-weight: 400;
+}
+
+.footer-text {
+  margin-top: auto;
+  font-size: 11px;
+  color: rgba(255,255,255,0.5);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+/* Right Side - Form */
+.login-right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background: var(--bg-light);
+  padding: 40px;
+}
+
+.form-container {
+  width: 100%;
+  max-width: 420px;
+}
+
+.login-title {
+  font-family: var(--font-heading);
+  font-size: 32px;
+  font-weight: 800;
+  margin-bottom: 8px;
+  color: var(--text-main);
+}
+
+.login-sub {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-bottom: 32px;
+}
+
+.input-group {
+  margin-bottom: 20px;
+}
+
+.input-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  font-family: var(--font-heading);
+}
+
+.input-wrap {
+  position: relative;
+}
+
+.input-ico {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #A39BAE;
+  font-size: 14px;
+  pointer-events: none;
+}
+
+.fc {
+  width: 100%;
+  padding: 14px 16px 14px 44px;
+  background: var(--input-bg);
+  border: 1px solid rgba(0,0,0,0.05);
+  border-radius: 10px;
+  font-size: 14px;
+  color: var(--text-main);
+  transition: all 0.2s;
+  box-sizing: border-box;
+  font-family: var(--font-body);
+}
+
+.fc:focus {
+  outline: none;
+  border-color: rgba(211,84,0,0.3);
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(211,84,0,0.08);
+}
+
+.btn-submit {
+  width: 100%;
+  padding: 16px;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: var(--font-heading);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(211,84,0,0.25);
+  margin-top: 24px;
+}
+
+.btn-submit:hover {
+  background: var(--primary-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(211,84,0,0.35);
+}
+
+.signup-link {
+  text-align: center;
+  margin-top: 24px;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.signup-link a {
+  color: var(--primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+@media (max-width: 900px) {
+  .login-left {
+    display: none;
+  }
+}
+</style>
+
+<div class="login-wrap">
+  <div class="login-left">
+    <div class="brand-wrap">
+      <div class="brand-mark">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="9" x2="9" y2="15"></line><line x1="15" y1="9" x2="15" y2="15"></line></svg>
+      </div>
+      <div class="brand-name">SmartAttend</div>
+    </div>
+    
+    <div class="hero-title">Elevate<br>Campus<br>Administration</div>
+    <div class="hero-subtitle">Create an Admin account to oversee attendance, manage classes, and access powerful analytics.</div>
+    
+    <div class="footer-text">
+      © 2024 SMARTATTEND AI. PRECISION IN EDUCATION.
+    </div>
+  </div>
+
+  <div class="login-right">
+    <div class="form-container">
+      <div class="login-title">Create Admin Account</div>
+      <div class="login-sub">Register to manage your institution's attendance.</div>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for cat, msg in messages %}
+      <div class="al al-err" style="margin-bottom:20px; background:#FEECEB; color:#E74C3C; padding:12px; border-radius:8px; font-size:13px;"><i class="fas fa-circle-xmark" style="margin-right:6px"></i>{{ msg }}</div>
+      {% endfor %}{% endwith %}
+
+      <form method="POST" action="">
+        <div class="input-group">
+          <div class="input-label">Full Name</div>
+          <div class="input-wrap">
+            <i class="input-ico fas fa-id-card"></i>
+            <input type="text" name="name" class="fc" placeholder="e.g. Priyanshi Sharma" required>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <div class="input-label">Username</div>
+          <div class="input-wrap">
+            <i class="input-ico fas fa-user"></i>
+            <input type="text" name="username" class="fc" placeholder="e.g. admin_ps" required>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <div class="input-label">Email Address</div>
+          <div class="input-wrap">
+            <i class="input-ico fas fa-envelope"></i>
+            <input type="email" name="email" class="fc" placeholder="admin@institute.edu" required>
+          </div>
+        </div>
+        
+        <div class="input-group">
+          <div class="input-label">Password</div>
+          <div class="input-wrap">
+            <i class="input-ico fas fa-lock"></i>
+            <input type="password" name="password" class="fc" placeholder="••••••••" required>
+          </div>
+        </div>
+        
+        <button type="submit" class="btn-submit">
+          Create Account <i class="fas fa-check-circle" style="margin-left:4px"></i>
+        </button>
+      </form>
+
+      <div class="signup-link">
+        Already have an account? <a href="{{ url_for('auth.login') }}">Sign In As Admin</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

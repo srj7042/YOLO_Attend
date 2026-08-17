@@ -1,0 +1,316 @@
+{% extends "base.html" %}
+{% block title %}Student Dashboard — SmartAttend{% endblock %}
+{% block page_title %}Student Portal{% endblock %}
+{% block topbar_actions %}
+<button class="btn bs btn-sm" onclick="openModal('modalChangePw')"><i class="fas fa-key"></i> Change Password</button>
+{% endblock %}
+{% block content %}
+
+{% if not student %}
+<div class="card fu fu1" style="text-align:center; padding:40px;">
+  <i class="fas fa-user-slash" style="font-size:48px; color:var(--red); margin-bottom:16px;"></i>
+  <div style="font-size:18px; font-weight:700; color:var(--t0);">No Profile Linked</div>
+  <div style="font-size:14px; color:var(--t2); margin-top:8px;">Your user account is not linked to any active student record. Please contact your department administration.</div>
+</div>
+{% else %}
+
+<!-- Student Profile Header Card -->
+<div class="card fu fu1" style="margin-bottom:24px; background:linear-gradient(135deg, var(--bg1), var(--bg2));">
+  <div style="display:flex; align-items:center; gap:24px; flex-wrap:wrap;">
+    <!-- Profile Photo -->
+    <div style="position:relative;">
+      <img src="{{ url_for('student.get_photo') }}" alt="{{ student.name }}" style="width:96px; height:96px; border-radius:50%; object-fit:cover; border:3px solid var(--brand); box-shadow:0 4px 16px rgba(0,0,0,0.15);">
+      <div style="position:absolute; bottom:2px; right:2px; width:22px; height:22px; border-radius:50%; background:var(--green); border:2px solid #fff; display:flex; align-items:center; justify-content:center; font-size:10px; color:#fff;" title="Active Student">
+        <i class="fas fa-check"></i>
+      </div>
+    </div>
+
+    <!-- Student Information -->
+    <div style="flex:1; min-width:260px;">
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:6px;">
+        <h2 style="font-family:var(--font-heading); font-size:24px; font-weight:800; color:var(--t0); margin:0;">{{ student.name }}</h2>
+        <span class="badge {{ 'bag' if overall_pct >= 75 else 'bar' }}">{{ 'Eligible' if overall_pct >= 75 else 'Shortage Warning' }}</span>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:10px; margin-top:10px; font-size:13px; color:var(--t1);">
+        <div><i class="fas fa-id-card" style="color:var(--brand); margin-right:6px;"></i><strong>Roll No:</strong> {{ student.roll_number or 'N/A' }}</div>
+        <div><i class="fas fa-hashtag" style="color:var(--brand); margin-right:6px;"></i><strong>Student ID:</strong> {{ student.student_id }}</div>
+        <div><i class="fas fa-building-columns" style="color:var(--brand); margin-right:6px;"></i><strong>Department:</strong> {{ dept.name if dept else 'N/A' }} ({{ dept.code if dept else 'N/A' }})</div>
+        <div><i class="fas fa-graduation-cap" style="color:var(--brand); margin-right:6px;"></i><strong>Class / Div:</strong> {{ cls.full_name if cls else 'N/A' }}</div>
+        <div><i class="fas fa-envelope" style="color:var(--brand); margin-right:6px;"></i><strong>Email:</strong> {{ student.email or 'N/A' }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- KPI Stats Grid -->
+<div class="sg fu fu2">
+  <div class="sc" style="background:var(--b2);">
+    <div class="sc-glow" style="background:var(--brand)"></div>
+    <div class="sc-ico ip"><i class="fas fa-chart-pie"></i></div>
+    <div class="sc-val">{{ overall_pct }}%</div>
+    <div class="sc-lbl">Overall Attendance</div>
+  </div>
+  <div class="sc" style="background:var(--b2);">
+    <div class="sc-glow" style="background:var(--green)"></div>
+    <div class="sc-ico ig"><i class="fas fa-user-check"></i></div>
+    <div class="sc-val">{{ total_present }}</div>
+    <div class="sc-lbl">Lectures Attended</div>
+  </div>
+  <div class="sc" style="background:var(--b2);">
+    <div class="sc-glow" style="background:var(--red)"></div>
+    <div class="sc-ico iy"><i class="fas fa-user-xmark"></i></div>
+    <div class="sc-val">{{ total_absent }}</div>
+    <div class="sc-lbl">Lectures Missed</div>
+  </div>
+  <div class="sc" style="background:var(--b2);">
+    <div class="sc-glow" style="background:var(--brand-l)"></div>
+    <div class="sc-ico ic"><i class="fas fa-book-open"></i></div>
+    <div class="sc-val">{{ total_lectures }}</div>
+    <div class="sc-lbl">Total Conducted</div>
+  </div>
+</div>
+
+<!-- Visual Charts Section -->
+<div class="g2 fu fu3" style="margin-bottom:24px;">
+  <!-- Subject Attendance Comparison Chart -->
+  <div class="card">
+    <div class="c-hd">
+      <div>
+        <div class="c-title">Subject Comparison</div>
+        <div class="c-sub">Attendance breakdown by subject</div>
+      </div>
+    </div>
+    <canvas id="subjectChart" height="140"></canvas>
+  </div>
+
+  <!-- Weekly Trend Chart -->
+  <div class="card">
+    <div class="c-hd">
+      <div>
+        <div class="c-title">Weekly Attendance Trend</div>
+        <div class="c-sub">Present vs Absent count for this week</div>
+      </div>
+    </div>
+    <canvas id="weeklyChart" height="140"></canvas>
+  </div>
+</div>
+
+<!-- Subject-Wise Attendance Breakdown Table -->
+<div class="card fu fu3" style="margin-bottom:24px;">
+  <div class="c-hd">
+    <div>
+      <div class="c-title">Subject-Wise Attendance</div>
+      <div class="c-sub">Detailed breakdown per subject in your course</div>
+    </div>
+  </div>
+  <div style="overflow-x:auto;">
+    <table>
+      <thead>
+        <tr>
+          <th>Subject</th>
+          <th>Faculty</th>
+          <th>Attended / Conducted</th>
+          <th>Percentage</th>
+          <th>Progress</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if not subject_stats %}
+        <tr>
+          <td colspan="6" style="text-align:center; padding:20px; color:var(--t2);">No subjects registered for your class yet.</td>
+        </tr>
+        {% endif %}
+        {% for st in subject_stats %}
+        <tr>
+          <td>
+            <div style="font-weight:700; color:var(--t0);">{{ st.subject.name }}</div>
+            <div style="font-size:11px; color:var(--t2); font-family:var(--font-mono);">{{ st.subject.code or '' }}</div>
+          </td>
+          <td>{{ st.teacher_name }}</td>
+          <td><strong style="color:var(--green);">{{ st.present }}</strong> / {{ st.total }}</td>
+          <td>
+            <span class="badge {{ 'bag' if st.pct >= 75 else 'bay' if st.pct >= 50 else 'bar' }}">{{ st.pct }}%</span>
+          </td>
+          <td style="width:200px;">
+            <div class="prog">
+              <div class="prog-f {{ 'prog-g' if st.pct >= 75 else 'prog-r' if st.pct < 50 else '' }}" style="width:{{ st.pct }}%"></div>
+            </div>
+          </td>
+          <td>
+            {% if st.pct >= 75 %}
+            <span style="color:var(--green); font-weight:600; font-size:12px;"><i class="fas fa-check-circle"></i> Good</span>
+            {% else %}
+            <span style="color:var(--red); font-weight:600; font-size:12px;"><i class="fas fa-triangle-exclamation"></i> Low</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Detailed Attendance Log History -->
+<div class="card fu fu4">
+  <div class="c-hd">
+    <div>
+      <div class="c-title">Attendance History Log</div>
+      <div class="c-sub">Session-by-session breakdown of marked lectures</div>
+    </div>
+  </div>
+  <div style="overflow-x:auto;">
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Time Slot</th>
+          <th>Subject</th>
+          <th>Faculty</th>
+          <th>Method</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if not history %}
+        <tr>
+          <td colspan="6" style="text-align:center; padding:24px; color:var(--t2);">No attendance records found yet.</td>
+        </tr>
+        {% endif %}
+        {% for h in history %}
+        <tr>
+          <td><i class="fas fa-calendar-day" style="color:var(--brand); margin-right:6px;"></i>{{ h.date }}</td>
+          <td><span style="font-family:var(--font-mono); font-size:12px;">{{ h.time_slot }}</span></td>
+          <td>
+            <div style="font-weight:600; color:var(--t0);">{{ h.subject_name }}</div>
+            {% if h.subject_code %}<div style="font-size:10px; color:var(--t2);">{{ h.subject_code }}</div>{% endif %}
+          </td>
+          <td>{{ h.teacher_name }}</td>
+          <td>
+            <span style="font-size:11px; padding:2px 8px; border-radius:4px; background:var(--glass); border:1px solid var(--b0); font-family:var(--font-mono);">
+              {{ h.method|upper }}
+            </span>
+          </td>
+          <td>
+            {% if h.status == 'present' %}
+            <span class="badge bag"><i class="fas fa-check"></i> Present</span>
+            {% else %}
+            <span class="badge bar"><i class="fas fa-xmark"></i> Absent</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Change Password Modal -->
+<div class="mbg" id="modalChangePw">
+  <div class="modal">
+    <div class="m-title">
+      <span><i class="fas fa-key" style="color:var(--brand); margin-right:8px;"></i> Change Password</span>
+      <i class="fas fa-times" style="cursor:pointer;" onclick="closeModal('modalChangePw')"></i>
+    </div>
+    <form method="POST" action="{{ url_for('student.change_password') }}">
+      <div class="fg">
+        <label class="fl">Current Password</label>
+        <input type="password" name="current_password" class="fc" placeholder="Enter current password" required>
+      </div>
+      <div class="fg">
+        <label class="fl">New Password</label>
+        <input type="password" name="new_password" class="fc" placeholder="At least 6 characters" minlength="6" required>
+      </div>
+      <div class="fg">
+        <label class="fl">Confirm New Password</label>
+        <input type="password" name="confirm_password" class="fc" placeholder="Re-enter new password" minlength="6" required>
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+        <button type="button" class="btn bs" onclick="closeModal('modalChangePw')">Cancel</button>
+        <button type="submit" class="btn bp"><i class="fas fa-check"></i> Save Password</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  {% if subject_stats %}
+  // Subject Comparison Chart
+  const subjLabels = [{% for st in subject_stats %}"{{ st.subject.code or st.subject.name[:12] }}",{% endfor %}];
+  const subjData = [{% for st in subject_stats %}{{ st.pct }},{% endfor %}];
+
+  const ctxSubj = document.getElementById('subjectChart').getContext('2d');
+  new Chart(ctxSubj, {
+    type: 'bar',
+    data: {
+      labels: subjLabels,
+      datasets: [{
+        label: 'Attendance %',
+        data: subjData,
+        backgroundColor: subjData.map(v => v >= 75 ? 'rgba(45, 168, 79, 0.7)' : 'rgba(225, 37, 27, 0.7)'),
+        borderColor: subjData.map(v => v >= 75 ? '#2DA84F' : '#E1251B'),
+        borderWidth: 1.5,
+        borderRadius: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } },
+        x: { grid: { display: false } }
+      }
+    }
+  });
+  {% endif %}
+
+  {% if weekly %}
+  // Weekly Trend Chart
+  const weeklyLabels = [{% for w in weekly %}"{{ w.date }}",{% endfor %}];
+  const weeklyPresent = [{% for w in weekly %}{{ w.present }},{% endfor %}];
+  const weeklyAbsent = [{% for w in weekly %}{{ w.absent }},{% endfor %}];
+
+  const ctxWeekly = document.getElementById('weeklyChart').getContext('2d');
+  new Chart(ctxWeekly, {
+    type: 'line',
+    data: {
+      labels: weeklyLabels,
+      datasets: [
+        {
+          label: 'Present',
+          data: weeklyPresent,
+          borderColor: '#2DA84F',
+          backgroundColor: 'rgba(45, 168, 79, 0.1)',
+          fill: true,
+          tension: 0.35,
+          pointRadius: 4
+        },
+        {
+          label: 'Absent',
+          data: weeklyAbsent,
+          borderColor: '#E1251B',
+          backgroundColor: 'rgba(225, 37, 27, 0.1)',
+          fill: true,
+          tension: 0.35,
+          pointRadius: 4
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'top' } },
+      scales: {
+        y: { beginAtZero: true, ticks: { stepSize: 1 } },
+        x: { grid: { display: false } }
+      }
+    }
+  });
+  {% endif %}
+});
+</script>
+{% endblock %}

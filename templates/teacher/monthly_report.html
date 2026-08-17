@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% block title %}Monthly Report — SmartAttend{% endblock %}
+{% block page_title %}Monthly Report{% endblock %}
+{% block topbar_actions %}
+{% if student_data %}
+<button class="btn bg btn-sm" onclick="window.print()"><i class="fas fa-print"></i> Print</button>
+{% endif %}
+{% endblock %}
+{% block content %}
+<style>
+.heatmap-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.heat-cell{aspect-ratio:1;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;cursor:default;transition:transform .15s}
+.heat-cell:hover{transform:scale(1.15)}
+.heat-high{background:rgba(67,233,123,.7);color:#07080F}
+.heat-med{background:rgba(67,233,123,.35);color:var(--green)}
+.heat-low{background:rgba(255,107,107,.4);color:var(--red)}
+.heat-none{background:var(--glass);color:var(--t2)}
+.heat-empty{background:transparent}
+.day-label{text-align:center;font-size:10px;color:var(--t2);font-weight:600;padding:4px 0}
+</style>
+
+<!-- Controls -->
+<div class="card fu fu1" style="padding:14px 18px;margin-bottom:18px">
+  <form method="GET" style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+    <div>
+      <label class="fl">Subject</label>
+      <select name="subject_id" class="fc" style="width:220px" required>
+        <option value="">Select Subject</option>
+        {% for s in subjects %}<option value="{{ s.id }}" {% if selected_subject == s.id %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="fl">Month</label>
+      <input type="month" name="month" class="fc" style="width:160px" value="{{ month }}">
+    </div>
+    <button type="submit" class="btn bp" style="align-self:flex-end"><i class="fas fa-chart-bar"></i> Generate Report</button>
+  </form>
+</div>
+
+{% if selected_subject and student_data is defined %}
+<!-- Stats row -->
+<div class="sg fu fu2">
+  <div class="sc"><div class="sc-glow" style="background:var(--brand)"></div><div class="sc-ico ip"><i class="fas fa-users"></i></div><div class="sc-val">{{ total_students }}</div><div class="sc-lbl">Students</div></div>
+  <div class="sc"><div class="sc-glow" style="background:#2DA84F"></div><div class="sc-ico ig"><i class="fas fa-percent"></i></div><div class="sc-val">{{ avg_pct }}%</div><div class="sc-lbl">Avg Attendance</div></div>
+  <div class="sc"><div class="sc-glow" style="background:var(--accent)"></div><div class="sc-ico ir"><i class="fas fa-triangle-exclamation"></i></div><div class="sc-val">{{ below_75 }}</div><div class="sc-lbl">Below 75%</div></div>
+  <div class="sc"><div class="sc-glow" style="background:var(--accent)"></div><div class="sc-ico iy"><i class="fas fa-calendar"></i></div><div class="sc-val">{{ days_in_month }}</div><div class="sc-lbl">Days in Month</div></div>
+</div>
+
+<div class="g2 fu fu3">
+  <!-- Heatmap -->
+  <div class="card">
+    <div class="c-hd"><div class="c-title">Daily Attendance Heatmap</div>
+    <div style="display:flex;gap:10px;font-size:11px;color:var(--t2);align-items:center">
+      <span><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:rgba(67,233,123,.7);margin-right:4px"></span>High</span>
+      <span><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:rgba(67,233,123,.35);margin-right:4px"></span>Med</span>
+      <span><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:rgba(255,107,107,.4);margin-right:4px"></span>Low</span>
+    </div>
+    </div>
+    <div class="heatmap-grid" id="heatmap">
+      <div class="day-label">Sun</div><div class="day-label">Mon</div><div class="day-label">Tue</div>
+      <div class="day-label">Wed</div><div class="day-label">Thu</div><div class="day-label">Fri</div><div class="day-label">Sat</div>
+    </div>
+    <div style="font-size:12px;color:var(--t2);margin-top:10px;text-align:center">
+      {{ first_day.strftime('%B %Y') if first_day else month }}
+    </div>
+  </div>
+
+  <!-- Donut chart -->
+  <div class="card">
+    <div class="c-hd"><div class="c-title">Grade Distribution</div></div>
+    <canvas id="gradeChart" height="180"></canvas>
+    <div style="display:flex;justify-content:center;gap:14px;margin-top:14px;flex-wrap:wrap">
+      {% for grade, color in [('A','var(--green)'),('B','var(--brand)'),('C','var(--gold)'),('F','var(--accent)')] %}
+      <span style="font-size:12px;color:var(--t1);display:flex;align-items:center;gap:5px">
+        <span style="width:10px;height:10px;border-radius:50%;background:{{color}};display:inline-block"></span>
+        Grade {{ grade }}: {{ student_data|selectattr('grade','equalto',grade)|list|length }}
+      </span>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- Student table -->
+<div class="card fu fu4" style="margin-top:18px">
+  <div class="c-hd">
+    <div class="c-title">Student-wise Summary</div>
+    <div style="display:flex;gap:8px">
+      <a href="{{ url_for('teacher.export_csv') }}?subject_id={{ selected_subject }}" class="btn bg btn-sm"><i class="fas fa-download"></i> Export</a>
+    </div>
+  </div>
+  <div style="overflow-x:auto">
+    <table>
+      <thead>
+        <tr><th>Roll</th><th>Student</th><th>Present</th><th>Absent</th><th>Total Days</th><th>%</th><th>Grade</th></tr>
+      </thead>
+      <tbody>
+        {% for s in student_data|sort(attribute='pct', reverse=True) %}
+        <tr>
+          <td><span style="font-family:var(--fm);font-size:12px;color:var(--brand)">{{ s.roll }}</span></td>
+          <td style="font-weight:600;color:var(--t0)">{{ s.name }}</td>
+          <td style="color:var(--green)">{{ s.present }}</td>
+          <td style="color:var(--red)">{{ s.absent }}</td>
+          <td style="color:var(--t2)">{{ s.total }}</td>
+          <td>
+            <span class="badge {% if s.pct >= 75 %}bag{% elif s.pct >= 60 %}bay{% else %}bar{% endif %}">{{ s.pct }}%</span>
+          </td>
+          <td>
+            <span style="font-family:var(--fd);font-size:14px;font-weight:800;color:{% if s.grade == 'A' %}var(--green){% elif s.grade == 'B' %}var(--brand){% elif s.grade == 'C' %}var(--gold){% else %}var(--red){% endif %}">{{ s.grade }}</span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+// Build heatmap
+const hm = {{ heatmap|safe }};
+const firstDay = new Date('{{ first_day }}');
+const daysInMonth = {{ days_in_month }};
+const startDow = firstDay.getDay();
+const grid = document.getElementById('heatmap');
+
+// Empty cells for start
+for(let i=0;i<startDow;i++){
+  const el = document.createElement('div');
+  el.className = 'heat-cell heat-empty';
+  grid.appendChild(el);
+}
+
+for(let d=1;d<=daysInMonth;d++){
+  const el = document.createElement('div');
+  const data = hm[d];
+  let cls = 'heat-none';
+  let title = `Day ${d}: No data`;
+  if(data && data.total > 0) {
+    const pct = data.present/data.total;
+    if(pct >= 0.75) cls = 'heat-high';
+    else if(pct >= 0.5) cls = 'heat-med';
+    else cls = 'heat-low';
+    title = `Day ${d}: ${data.present}/${data.total} present`;
+  }
+  el.className = 'heat-cell ' + cls;
+  el.textContent = d;
+  el.title = title;
+  grid.appendChild(el);
+}
+
+// Grade donut
+const grades = {A:0,B:0,C:0,F:0};
+{% for s in student_data %}grades['{{ s.grade }}']++;{% endfor %}
+new Chart(document.getElementById('gradeChart').getContext('2d'), {
+  type:'doughnut',
+  data:{
+    labels:['A (90%+)','B (75%+)','C (60%+)','F (<60%)'],
+    datasets:[{data:[grades.A,grades.B,grades.C,grades.F],backgroundColor:['rgba(67,233,123,.8)','rgba(108,99,255,.8)','rgba(255,217,61,.8)','rgba(255,107,107,.8)'],borderWidth:0,hoverOffset:8}]
+  },
+  options:{responsive:true,plugins:{legend:{display:false}},cutout:'65%'}
+});
+</script>
+
+{% elif selected_subject %}
+<div class="card" style="text-align:center;padding:50px">
+  <i class="fas fa-chart-bar" style="font-size:36px;color:var(--t2);margin-bottom:14px;display:block"></i>
+  <div style="font-family:var(--fd);font-size:17px;font-weight:700;margin-bottom:6px">No Data for this Period</div>
+  <div style="font-size:13.5px;color:var(--t1)">No attendance records found for the selected subject and month.</div>
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:50px">
+  <i class="fas fa-calendar-days" style="font-size:36px;color:var(--t2);margin-bottom:14px;display:block"></i>
+  <div style="font-family:var(--fd);font-size:17px;font-weight:700;margin-bottom:6px">Select a Subject</div>
+  <div style="font-size:13.5px;color:var(--t1)">Choose a subject and month above to generate the report.</div>
+</div>
+{% endif %}
+{% endblock %}

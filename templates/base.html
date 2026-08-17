@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}SmartAttend{% endblock %}</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Exo+2:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+:root{
+  --brand:#0F204C; /* Raisoni Navy Blue */
+  --brand-l:#1C3B78;
+  --accent:#E1251B; /* Raisoni Red Accent */
+  --red:#E1251B;
+  --green:#2DA84F;
+  --gold:#F59E0B;
+  --cyan:#1C3B78;
+  
+  --bg0:#F4F6F9; 
+  --bg1:#FFFFFF;
+  --bg2:#FAFAFA;
+  --bg3:#EAECEF;
+  --nav-bg: #0C0F1A; 
+  --nav-text: #94A3B8;
+  --nav-hover: #1E293B;
+  
+  --glass:rgba(15,32,76,.05);
+  --glass2:rgba(15,32,76,.09);
+  --b0:rgba(15,32,76,.12);
+  --b1:rgba(15,32,76,.22);
+  --b2:rgba(15,32,76,.4);
+  
+  --t0:#111827; /* Dark Gray for high contrast text */
+  --t1:#374151;
+  --t2:#6B7280;
+  
+  --nav-w:240px;
+  --ff:"Exo 2",sans-serif;--fd:"Rajdhani",sans-serif;--fm:"Share Tech Mono",monospace;
+  --font-heading: 'Rajdhani', sans-serif;
+  --font-body: 'Exo 2', sans-serif;
+  --font-mono: 'Share Tech Mono', monospace;
+}
+/* Enhanced Dark Mode Overrides */
+[data-theme='dark'] {
+  --bg0: #0B1120; /* Very deep navy/black */
+  --bg1: #111827; /* Dark grayish blue */
+  --bg2: #1F2937;
+  --bg3: #374151;
+  --t0: #F9FAFB; /* Purest white text */
+  --t1: #E5E7EB;
+  --t2: #9CA3AF;
+  --b0: rgba(255,255,255,0.15);
+  --b1: rgba(255,255,255,0.25);
+  --b2: rgba(255,255,255,0.4);
+  --glass: rgba(255,255,255,0.05);
+  --glass2: rgba(255,255,255,0.1);
+  --brand-l: #3B82F6; /* Bright blue for dark mode visibility */
+  --nav-bg: #030712;
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:16px;scroll-behavior:smooth}
+body{font-family:var(--font-body), var(--ff);background:var(--bg0);color:var(--t0);min-height:100vh;display:flex;overflow-x:hidden; transition: background 0.3s, color 0.3s, border 0.3s;}
+
+/* Sidebar - Dark Theme */
+.sidebar{width:var(--nav-w);min-height:100vh;background:var(--nav-bg);border-right:1px solid #1e293b;display:flex;flex-direction:column;position:fixed;left:0;top:0;bottom:0;z-index:100;transition:all .3s cubic-bezier(.4,0,.2,1)}
+.sidebar.collapsed { width: 80px; }
+.sidebar.collapsed .s-name, .sidebar.collapsed .s-sub, .sidebar.collapsed .nav-item span, .sidebar.collapsed .s-sec { display: none; }
+.sidebar-toggle { position:absolute; right:-14px; top:36px; width:28px; height:28px; background:var(--brand); border-radius:50%; color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:10; border:4px solid var(--bg0); font-size:12px;}
+
+.s-logo{padding:22px 18px 18px;border-bottom:1px solid #1e293b; display:flex; align-items:center; gap:12px;}
+.s-mark{width:36px;height:36px;background:#C87A5B;border-radius:10px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(0,0,0,.2); flex-shrink:0;}
+.s-text { display:flex; flex-direction:column; }
+.s-name{font-family:var(--font-heading);font-size:16px;font-weight:700;color:#fff;}
+.s-sub{font-size:10px;color:var(--nav-text);letter-spacing:.05em; margin-top:2px; text-transform:uppercase;}
+
+.s-nav{flex:1;padding:20px 14px;overflow-y:auto}
+.s-sec{font-size:10px;font-weight:700;letter-spacing:.08em;color:#475569;text-transform:uppercase;padding:12px 8px 5px; margin-top:10px;}
+.nav-item{display:flex;align-items:center;gap:12px;padding:12px;border-radius:8px;color:var(--nav-text);font-size:13.5px;font-weight:500;text-decoration:none;transition:all .2s ease;margin-bottom:4px;position:relative}
+.nav-item:hover{background:var(--nav-hover);color:#fff;}
+.nav-item.active{background:rgba(91,45,142,.2);color:#fff;}
+.nav-item.active::before{content:"";position:absolute;left:-14px;top:50%;transform:translateY(-50%);width:4px;height:24px;background:#D35400;border-radius:0 4px 4px 0;}
+.nav-item i{width:18px;font-size:15px;text-align:center;}
+
+.main{flex:1;margin-left:var(--nav-w);min-height:100vh;display:flex;flex-direction:column; transition:margin-left .3s cubic-bezier(.4,0,.2,1)}
+.sidebar.collapsed ~ .main { margin-left: 80px; }
+
+/* Topbar */
+.topbar{height:70px;background:var(--bg1);border-bottom:1px solid var(--b0);display:flex;align-items:center;justify-content:space-between;padding:0 30px; position:sticky;top:0;z-index:50;}
+.search-container { position:relative; width:340px;}
+.search-container i { position:absolute; left:16px; top:50%; transform:translateY(-50%); color:var(--text-muted, #8A7A9A); }
+.search-input { width:100%; padding:10px 16px 10px 42px; background:var(--bg0); border:1px solid transparent; border-radius:30px; font-size:13px; font-family:var(--font-body); outline:none; transition:box-shadow .2s; }
+.search-input:focus { box-shadow: 0 0 0 3px rgba(91,45,142,0.1); }
+
+.topbar-right { display:flex; align-items:center; gap:20px; }
+.icon-btn { position:relative; width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:var(--t1); cursor:pointer; transition:background .2s; background:transparent; border:none; font-size:16px; }
+.icon-btn:hover { background:rgba(0,0,0,0.05); color:var(--t0); }
+.badge-dot { position:absolute; top:8px; right:10px; width:6px; height:6px; border-radius:50%; background:var(--red); }
+
+/* User Info Topbar */
+.tb-user { display:flex; align-items:center; gap:12px; padding-left:20px; border-left:1px solid var(--b0); }
+.tb-avatar { width:36px; height:36px; border-radius:50%; background:var(--brand); display:flex; align-items:center; justify-content:center; font-size:14px; color:#fff; font-weight:700;}
+.tb-info { display:flex; flex-direction:column; }
+.tb-role { font-size:10px; color:var(--t2); text-transform:uppercase; letter-spacing:0.5px;}
+.tb-name { font-size:13px; font-weight:600; color:var(--t0); }
+
+/* Notification Popup */
+.notif-popup { position:absolute; top:60px; right:200px; width:320px; background:var(--bg1); border-radius:16px; box-shadow:0 10px 40px rgba(0,0,0,0.1); padding:20px; display:none; flex-direction:column; gap:16px; z-index:200; border:1px solid var(--b0); }
+.notif-popup.show { display:flex; animation:popIn 0.2s ease-out; }
+@keyframes popIn { from{opacity:0; transform:translateY(-10px) scale(0.95);} to{opacity:1; transform:translateY(0) scale(1);} }
+.n-head { display:flex; justify-content:space-between; align-items:center; }
+.n-title { font-size:14px; font-weight:700; color:var(--brand); }
+.n-badge-pill { background:var(--brand); color:#fff; font-size:10px; padding:2px 8px; border-radius:12px; font-weight:600; }
+.n-item { display:flex; gap:12px; align-items:flex-start; }
+.n-dot { width:8px; height:8px; border-radius:50%; background:#E67E22; margin-top:4px; flex-shrink:0; }
+.n-dot.purple { background:var(--brand); }
+.n-dot.blue { background:#3498DB; }
+.n-text { font-size:12px; font-weight:600; color:var(--t0); line-height:1.4;}
+.n-time { font-size:10px; color:var(--t2); margin-top:2px;}
+.n-btn { background:var(--brand); color:#fff; text-align:center; padding:10px; border-radius:8px; width:100%; border:none; font-size:12px; font-weight:600; cursor:pointer; margin-top:10px; }
+
+.page-body{padding:0 30px 40px;}
+.card{background:var(--bg1);border:1px solid var(--b0);border-radius:16px;padding:22px;transition:border-color .2s,box-shadow .2s;box-shadow:0 2px 12px rgba(91,45,142,.06)}
+.card:hover{border-color:var(--brand);box-shadow:0 4px 20px rgba(91,45,142,.1)}
+.c-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.c-title{font-family:var(--fd);font-size:14px;font-weight:700}
+.c-sub{font-size:12px;color:var(--t1);margin-top:2px}
+.sg{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:14px;margin-bottom:22px}
+.sc{background:var(--bg1);border:1px solid var(--b0);border-radius:16px;padding:18px 20px;position:relative;overflow:hidden;transition:transform .2s,box-shadow .2s;cursor:default;box-shadow:0 2px 10px rgba(91,45,142,.06)}
+.sc:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(0,0,0,.4)}
+.sc-glow{position:absolute;top:-20px;right:-20px;width:90px;height:90px;border-radius:50%;opacity:.07}
+.sc-ico{width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:15px;margin-bottom:12px}
+.ip{background:rgba(91,45,142,.12);color:var(--brand)}.ir{background:rgba(232,82,26,.12);color:var(--red)}.ig{background:rgba(45,168,79,.12);color:var(--green)}.iy{background:rgba(232,82,26,.1);color:var(--red)}.ic{background:rgba(123,63,190,.12);color:var(--brand-l)}
+.sc-val{font-family:var(--fd);font-size:30px;font-weight:800;line-height:1;margin-bottom:5px}
+.sc-lbl{font-size:12.5px;color:var(--t1)}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;font-family:var(--ff);cursor:pointer;border:none;transition:all .16s ease;text-decoration:none;white-space:nowrap}
+.bp{background:var(--brand);color:#fff;box-shadow:0 4px 14px rgba(91,45,142,.3)}.bp:hover{background:var(--brand-l);box-shadow:0 6px 20px rgba(91,45,142,.4);transform:translateY(-1px)}
+.bs{background:var(--glass);color:var(--t0);border:1px solid var(--b1)}.bs:hover{background:var(--glass2);border-color:var(--b2)}
+.bd{background:rgba(232,82,26,.1);color:var(--red);border:1px solid rgba(232,82,26,.25)}.bd:hover{background:var(--red);color:#fff}
+.bg{background:rgba(45,168,79,.1);color:var(--green);border:1px solid rgba(45,168,79,.22)}.bg:hover{background:var(--green);color:#fff}
+.btn-sm{padding:5px 11px;font-size:12px}.btn-lg{padding:11px 22px;font-size:14px;border-radius:10px}
+.bico{width:33px;height:33px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid var(--b0);background:var(--glass);color:var(--t1);cursor:pointer;transition:all .16s;font-size:13px}.bico:hover{border-color:var(--brand);color:var(--brand);background:rgba(91,45,142,.08)}
+.fg{margin-bottom:16px}.fl{display:block;font-size:11px;font-weight:700;color:var(--t1);text-transform:uppercase;letter-spacing:.07em;margin-bottom:7px}
+.fc{width:100%;padding:9px 13px;background:#fff;border:1.5px solid var(--b0);border-radius:8px;color:var(--t0);font-size:13.5px;font-family:var(--ff);transition:border-color .2s,box-shadow .2s;outline:none}
+.fc:focus{border-color:var(--brand);box-shadow:0 0 0 3px rgba(108,99,255,.12)}.fc::placeholder{color:var(--t2)}
+select.fc option{background:#fff;color:var(--t0)}
+table{width:100%;border-collapse:collapse}
+th{font-size:11px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.08em;padding:9px 15px;text-align:left;border-bottom:1px solid var(--b0);background:rgba(91,45,142,.04)}
+td{padding:12px 15px;font-size:13.5px;color:var(--t1);border-bottom:1px solid var(--b0);transition:background .12s}
+tr:last-child td{border-bottom:none}tr:hover td{background:rgba(91,45,142,.04);color:var(--t0)}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700}
+.bap{background:rgba(91,45,142,.1);color:var(--brand);border:1px solid rgba(91,45,142,.2)}.bar{background:rgba(232,82,26,.1);color:var(--red);border:1px solid rgba(232,82,26,.2)}.bag{background:rgba(45,168,79,.1);color:var(--green);border:1px solid rgba(45,168,79,.2)}.bay{background:rgba(232,82,26,.08);color:var(--red);border:1px solid rgba(232,82,26,.18)}.bagr{background:var(--glass);color:var(--t2);border:1px solid var(--b0)}
+.al{padding:11px 14px;border-radius:8px;font-size:13.5px;display:flex;align-items:center;gap:9px;margin-bottom:14px}
+.al-ok{background:rgba(45,168,79,.08);border:1px solid rgba(45,168,79,.22);color:var(--green)}.al-err{background:rgba(232,82,26,.08);border:1px solid rgba(232,82,26,.22);color:var(--red)}.al-info{background:rgba(91,45,142,.08);border:1px solid rgba(91,45,142,.22);color:var(--brand)}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:18px}.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px}
+.mbg{position:fixed;inset:0;background:rgba(26,16,37,.5);backdrop-filter:blur(5px);display:none;align-items:center;justify-content:center;z-index:1000}.mbg.open{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--b1);border-radius:20px;padding:26px;width:90%;max-width:500px;box-shadow:0 24px 80px rgba(0,0,0,.6);animation:mIn .25s cubic-bezier(.34,1.56,.64,1)}
+@keyframes mIn{from{opacity:0;transform:scale(.92) translateY(18px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.m-title{font-family:var(--fd);font-size:17px;font-weight:800;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between}
+.fdrop{border:2px dashed var(--b0);border-radius:12px;padding:28px;text-align:center;cursor:pointer;transition:all .2s;background:var(--glass)}.fdrop:hover,.fdrop.drag{border-color:var(--brand);background:rgba(91,45,142,.04)}
+.prog{background:var(--glass);border-radius:20px;height:5px;overflow:hidden}.prog-f{height:100%;background:linear-gradient(90deg,var(--brand),var(--brand-l));border-radius:20px;transition:width .5s}.prog-g{background:linear-gradient(90deg,var(--green),#1E8A42)}.prog-r{background:linear-gradient(90deg,var(--red),#FF8344)}
+.gdot{width:6px;height:6px;border-radius:50%;background:#2DA84F;box-shadow:0 0 8px rgba(45,168,79,.5);animation:gp 2s infinite;display:inline-block}
+@keyframes gp{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes fu{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+.fu{animation:fu .4s ease forwards;opacity:0}.fu1{animation-delay:.05s}.fu2{animation-delay:.1s}.fu3{animation-delay:.15s}.fu4{animation-delay:.2s}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(91,45,142,.25);border-radius:2px}
+.divider{height:1px;background:var(--b0);margin:18px 0}
+@media(max-width:900px){.sidebar{transform:translateX(-100%)}.sidebar.open{transform:translateX(0)}.main{margin-left:0}.g2,.g3{grid-template-columns:1fr}.sg{grid-template-columns:1fr 1fr}}
+</style>
+{% block head %}{% endblock %}
+</head>
+<body>
+{% if current_user.is_authenticated %}
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-toggle" onclick="toggleSidebar()"><i class="fas fa-chevron-left" id="toggle-icon"></i></div>
+  <div class="s-logo">
+    <div class="s-mark">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+    </div>
+    <div class="s-text">
+      <div class="s-name">SmartAttend</div>
+      <div class="s-sub">AI Education Admin</div>
+    </div>
+  </div>
+  <nav class="s-nav">
+    {% if current_user.role == 'admin' %}
+    <a href="{{ url_for('admin.dashboard') }}" class="nav-item {% if request.endpoint == 'admin.dashboard' %}active{% endif %}"><i class="fas fa-border-all"></i> <span>Dashboard</span></a>
+    <a href="{{ url_for('admin.student_registration') }}" class="nav-item {% if request.endpoint == 'admin.student_registration' %}active{% endif %}"><i class="fas fa-id-card"></i> <span>Student Registration</span></a>
+    <a href="{{ url_for('admin.analytics') }}" class="nav-item {% if request.endpoint == 'admin.analytics' %}active{% endif %}"><i class="fas fa-chart-column"></i> <span>Analytics</span></a>
+    <a href="{{ url_for('admin.staff_log') }}" class="nav-item {% if request.endpoint == 'admin.staff_log' %}active{% endif %}">
+  <i class="fas fa-users-viewfinder" style="width:20px;text-align:center"></i> <span>Staff Log</span>
+</a>
+    <a href="{{ url_for('admin.approvals') }}" class="nav-item {% if request.endpoint == 'admin.approvals' %}active{% endif %}">
+      <i class="fas fa-certificate"></i> <span>Staff Approvals</span>
+      {%- set pc = pending_approvals_count|default(0) %}{% if pc > 0 %}<span class="n-badge">{{pc}}</span>{% endif %}
+    </a>
+    <a href="{{ url_for('admin.settings') }}" class="nav-item {% if request.endpoint == 'admin.settings' %}active{% endif %}"><i class="fas fa-cog"></i> <span>Settings</span></a>
+    
+    <div style="margin-top:auto; padding-top:40px;">
+        <a href="#" class="nav-item"><i class="fas fa-question-circle"></i> <span>Support</span></a>
+        <a href="{{ url_for('auth.logout') }}" class="nav-item"><i class="fas fa-arrow-right-from-bracket"></i> <span>Log Out</span></a>
+    </div>
+
+    {% elif current_user.role == 'student' %}
+    <a href="{{ url_for('student.dashboard') }}" class="nav-item {% if request.endpoint == 'student.dashboard' %}active{% endif %}"><i class="fas fa-gauge-high"></i> <span>My Dashboard</span></a>
+    <a href="{{ url_for('student.dashboard') }}#subject-attendance" class="nav-item"><i class="fas fa-book-open"></i> <span>Subject Attendance</span></a>
+    <a href="{{ url_for('student.dashboard') }}#attendance-history" class="nav-item"><i class="fas fa-clock-rotate-left"></i> <span>Attendance History</span></a>
+    
+    <div style="margin-top:auto; padding-top:40px;">
+        <a href="javascript:void(0)" onclick="openModal('modalChangePw')" class="nav-item"><i class="fas fa-key"></i> <span>Change Password</span></a>
+        <a href="{{ url_for('auth.logout') }}" class="nav-item"><i class="fas fa-arrow-right-from-bracket"></i> <span>Log Out</span></a>
+    </div>
+
+    {% else %}
+    <a href="{{ url_for('teacher.dashboard') }}" class="nav-item {% if request.endpoint == 'teacher.dashboard' %}active{% endif %}"><i class="fas fa-gauge-high"></i> <span>Dashboard</span></a>
+    <a href="{{ url_for('teacher.mark_attendance') }}" class="nav-item {% if request.endpoint == 'teacher.mark_attendance' %}active{% endif %}"><i class="fas fa-camera"></i> <span>Mark Attendance</span></a>
+    <a href="{{ url_for('teacher.records') }}" class="nav-item {% if request.endpoint == 'teacher.records' %}active{% endif %}"><i class="fas fa-list-check"></i> <span>Records & Export</span></a>
+    <!-- Classes & Lectures collapsible dropdown -->
+    <div class="nav-group {% if request.endpoint in ['teacher.classes','teacher.lectures'] %}open{% endif %}">
+      <div class="nav-group-header nav-item" onclick="toggleNavGroup(this)" style="cursor:pointer">
+        <i class="fas fa-chalkboard-user"></i>
+        <span>Classes &amp; Lectures</span>
+        <i class="fas fa-chevron-down nav-group-arrow" style="margin-left:auto;font-size:10px;transition:transform .2s"></i>
+      </div>
+      <div class="nav-group-body">
+        <a href="{{ url_for('teacher.classes') }}" class="nav-item nav-sub {% if request.endpoint == 'teacher.classes' %}active{% endif %}"><i class="fas fa-users-rectangle"></i> <span>Classes</span></a>
+        <a href="{{ url_for('teacher.lectures') }}" class="nav-item nav-sub {% if request.endpoint == 'teacher.lectures' %}active{% endif %}"><i class="fas fa-calendar-days"></i> <span>Lectures</span></a>
+      </div>
+    </div>
+    <div style="margin-top:auto; padding-top:40px;">
+        <a href="{{ url_for('auth.logout') }}" class="nav-item"><i class="fas fa-arrow-right-from-bracket"></i> <span>Log Out</span></a>
+    </div>
+    {% endif %}
+  </nav>
+</aside>
+{% endif %}
+
+<div class="main">
+  {% if current_user.is_authenticated %}
+  <header class="topbar">
+    <div class="search-container">
+      <i class="fas fa-search"></i>
+      <input type="text" class="search-input" placeholder="Search students, faculty, or classes...">
+    </div>
+    
+    <div class="topbar-right">
+      <button class="icon-btn" onclick="togglePopup('notifPopup')">
+        <i class="fas fa-bell"></i>
+      </button>
+      <button class="icon-btn" onclick="toggleTheme()"><i class="fas fa-moon" id="theme-icon"></i></button>
+      
+      <div class="tb-user">
+        <div class="tb-info" style="text-align:right;">
+          <div class="tb-role">{{ current_user.role }}</div>
+          <div class="tb-name">{{ current_user.name[:12] }}...</div>
+        </div>
+        <div class="tb-avatar">
+          {{ current_user.name[:1]|upper }}
+        </div>
+      </div>
+    </div>
+    
+    <!-- Notification Popup -->
+    <div class="notif-popup" id="notifPopup">
+      <div class="n-head">
+        <div class="n-title">Notifications</div>
+      </div>
+      <div style="text-align:center; padding:24px 0; color:var(--t2); font-size:13px;">
+        <i class="fas fa-bell-slash" style="font-size:20px; display:block; margin-bottom:8px; opacity:0.3;"></i>
+        No new notifications
+      </div>
+    </div>
+  </header>
+  {% endif %}
+  <div class="page-body">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}
+    <div class="al {{ 'al-ok' if cat == 'success' else 'al-err' if cat == 'error' else 'al-info' }}">
+      <i class="fas fa-{{ 'circle-check' if cat == 'success' else 'circle-xmark' if cat == 'error' else 'circle-info' }}"></i>{{ msg }}
+    </div>
+    {% endfor %}{% endwith %}
+    {% block content %}{% endblock %}
+  </div>
+</div>
+<script>
+// Sidebar Toggle Logic
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const icon = document.getElementById('toggle-icon');
+  sidebar.classList.toggle('collapsed');
+  if (sidebar.classList.contains('collapsed')) {
+      icon.className = 'fas fa-chevron-right';
+  } else {
+      icon.className = 'fas fa-chevron-left';
+  }
+}
+
+// Notification Popup Logic
+function togglePopup(id) {
+  const popup = document.getElementById(id);
+  popup.classList.toggle('show');
+}
+// Close popup when clicking outside
+document.addEventListener('click', (e) => {
+  const popup = document.getElementById('notifPopup');
+  const bellBtn = e.target.closest('.icon-btn');
+  if (popup && popup.classList.contains('show') && !popup.contains(e.target) && !bellBtn) {
+      popup.classList.remove('show');
+  }
+});
+
+// Dark Mode Toggle Logic
+function toggleTheme() {
+  const root = document.documentElement;
+  const icon = document.getElementById('theme-icon');
+  let currentTheme = root.getAttribute('data-theme');
+  
+  if (currentTheme === 'dark') {
+      root.removeAttribute('data-theme');
+      icon.className = 'fas fa-moon';
+      localStorage.setItem('theme', 'light');
+  } else {
+      root.setAttribute('data-theme', 'dark');
+      icon.className = 'fas fa-sun';
+      localStorage.setItem('theme', 'dark');
+  }
+}
+// Apply saved theme on load
+if (localStorage.getItem('theme') === 'dark') {
+  document.documentElement.setAttribute('data-theme', 'dark');
+  const icon = document.getElementById('theme-icon');
+  if(icon) icon.className = 'fas fa-sun';
+}
+
+if(window.innerWidth<900){const b=document.getElementById('menu-btn');if(b)b.style.display='flex'}
+document.addEventListener('click',e=>{const s=document.getElementById('sidebar');if(s&&window.innerWidth<900&&s.classList.contains('open')&&!s.contains(e.target)&&(!e.target.closest('#menu-btn')))s.classList.remove('open')});
+function openModal(id){document.getElementById(id).classList.add('open')}
+function closeModal(id){document.getElementById(id).classList.remove('open')}
+document.querySelectorAll('.mbg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open')}));
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

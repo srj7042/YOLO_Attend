@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}System Settings — SmartAttend{% endblock %}
+
+{% block head %}
+<style>
+  .settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; margin-top: 32px; }
+  .settings-card { background: var(--bg1); border-radius: 20px; padding: 24px; border: 1px solid var(--b0); box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
+  .s-title { font-family: var(--font-heading); font-size: 18px; font-weight: 700; color: var(--brand); margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
+  .s-desc { font-size: 13px; color: var(--t2); margin-bottom: 20px; line-height: 1.5; }
+  
+  .s-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--bg0); }
+  .s-item:last-child { border-bottom: none; }
+  .s-label { font-size: 14px; font-weight: 600; color: var(--t1); }
+  
+  /* Toggle Switch */
+  .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 24px; }
+  .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+  input:checked + .slider { background-color: var(--brand); }
+  input:checked + .slider:before { transform: translateX(20px); }
+
+  .btn-settings { background: var(--bg0); border: 1px solid var(--b0); color: var(--t1); padding: 8px 16px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; transition: 0.2s; }
+  .btn-settings:hover { border-color: var(--brand); color: var(--brand); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fu">
+  <span style="font-size:12px; font-weight:800; color:var(--brand); display:block; margin-bottom:4px; letter-spacing:1px; text-transform:uppercase;">Administration</span>
+  <h2 style="font-family: var(--font-heading); font-size: 28px; font-weight: 800; color: var(--brand);">System Settings</h2>
+  <p class="text-sub">Manage platform preferences, security, and maintenance tasks.</p>
+</div>
+
+<div class="settings-grid fu fu2">
+  <!-- General Settings -->
+  <div class="settings-card">
+    <div class="s-title"><i class="fas fa-sliders"></i> General Preferences</div>
+    <div class="s-desc">Configure how the dashboard looks and behaves for your session.</div>
+    
+    <div class="s-item">
+      <span class="s-label">Dark Mode Auto-Switch</span>
+      <label class="switch">
+        <input type="checkbox" onchange="toggleTheme()">
+        <span class="slider"></span>
+      </label>
+    </div>
+    <div class="s-item">
+      <span class="s-label">Compact Sidebar</span>
+      <label class="switch">
+        <input type="checkbox" onclick="toggleSidebar()">
+        <span class="slider"></span>
+      </label>
+    </div>
+    <div class="s-item">
+      <span class="s-label">Real-time Notifications</span>
+      <span style="font-size:11px; color:var(--t2); font-weight:600;">Coming Soon</span>
+    </div>
+  </div>
+
+  <!-- Security & Maintenance -->
+  <div class="settings-card">
+    <div class="s-title"><i class="fas fa-shield-halved"></i> Security & Maintenance</div>
+    <div class="s-desc">System-wide actions for database and account security.</div>
+    
+    <div class="s-item">
+      <span class="s-label">Clear System Logs</span>
+      <form action="{{ url_for('admin.settings') }}" method="POST" style="margin:0;"><input type="hidden" name="action" value="clear_logs"><button type="submit" class="btn-settings" onclick="return confirm('Clear all system logs?')">Execute</button></form>
+    </div>
+    <div class="s-item">
+      <span class="s-label">Backup Database</span>
+      <a href="{{ url_for('admin.settings') }}?action=backup" class="btn-settings" style="text-decoration:none;">Download .db</a>
+    </div>
+    <div class="s-item">
+      <span class="s-label">Maintenance Mode</span>
+      <span style="font-size:11px; color:var(--t2); font-weight:600;">Coming Soon</span>
+    </div>
+  </div>
+
+  <!-- AI & Face Recognition -->
+  <div class="settings-card">
+    <div class="s-title"><i class="fas fa-brain"></i> AI Engine Config</div>
+    <div class="s-desc">Fine-tune the facial recognition sensitivity and thresholds.</div>
+    
+    <div class="s-item">
+      <span class="s-label">Matching Threshold</span>
+      <span style="font-weight:700; color:var(--brand);">60%</span>
+    </div>
+    <div class="s-item">
+      <span class="s-label">Anti-Spoofing</span>
+      <span style="font-size:11px; color:var(--green); font-weight:600;"><i class="fas fa-check-circle" style="margin-right:4px;"></i>Enabled</span>
+    </div>
+    <div class="s-item">
+      <span class="s-label">Auto-Cleanup Photos</span>
+      <span style="font-size:11px; color:var(--t2); font-weight:600;">Auto-managed</span>
+    </div>
+  </div>
+</div>
+{% endblock %}

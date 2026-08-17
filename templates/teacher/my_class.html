@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+{% block title %}My Class — SmartAttend{% endblock %}
+{% block page_title %}My Class{% endblock %}
+{% block topbar_actions %}
+<button class="btn bp btn-sm" onclick="openModal('modal-add-student')"><i class="fas fa-user-plus"></i> Add Student</button>
+<button class="btn bs btn-sm" onclick="openModal('modal-import')"><i class="fas fa-file-csv"></i> Import CSV</button>
+<button class="btn bs btn-sm" onclick="openModal('modal-request')"><i class="fas fa-key"></i> Request Access</button>
+{% endblock %}
+{% block content %}
+
+{% if not classes_data %}
+<div class="card fu fu1" style="text-align:center;padding:60px;margin-bottom:20px">
+  <div style="font-size:40px;margin-bottom:14px">📚</div>
+  <div style="font-family:var(--fd);font-size:18px;font-weight:700;margin-bottom:8px">No Classes Assigned Yet</div>
+  <div style="font-size:13.5px;color:var(--t1);max-width:400px;margin:0 auto 20px">You need to be assigned to a subject first. Request access from your admin.</div>
+  <button class="btn bp" onclick="openModal('modal-request')"><i class="fas fa-key"></i> Request Subject Access</button>
+</div>
+{% endif %}
+
+{% for item in classes_data %}
+<div class="card fu" style="margin-bottom:18px;animation-delay:{{ loop.index0 * 0.07 }}s">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div style="width:46px;height:46px;border-radius:12px;background:linear-gradient(135deg,rgba(108,99,255,.2),rgba(156,111,255,.2));border:1px solid rgba(108,99,255,.3);display:flex;align-items:center;justify-content:center;font-family:var(--fd);font-size:18px;font-weight:800;color:var(--brand)">{{ loop.index }}</div>
+      <div>
+        <div style="font-family:var(--fd);font-size:17px;font-weight:800">{{ item.class.full_name }}</div>
+        <div style="font-size:12.5px;color:var(--t1);margin-top:2px">Year {{ item.class.year }} · {{ item.class.department.name }}</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <span class="badge bap">{{ item.student_count }} Students</span>
+      <span class="badge {% if item.face_ready == item.student_count and item.student_count > 0 %}bag{% elif item.face_ready > 0 %}bay{% else %}bar{% endif %}">
+        <i class="fas fa-camera" style="font-size:9px"></i> {{ item.face_ready }}/{{ item.student_count }} Face Ready
+      </span>
+    </div>
+  </div>
+
+  <div style="overflow-x:auto">
+    <table>
+      <thead>
+        <tr><th>Roll No</th><th>Name</th><th>Email</th><th>Face Data</th><th>Upload Photos</th></tr>
+      </thead>
+      <tbody>
+        {% for s in item.students %}
+        <tr>
+          <td><span style="font-family:var(--fm);font-size:12px;color:var(--brand)">{{ s.student_id }}</span></td>
+          <td>
+            <div style="display:flex;align-items:center;gap:9px">
+              <div style="width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,var(--brand),var(--brand-l));display:flex;align-items:center;justify-content:center;font-family:var(--fd);font-size:10px;font-weight:700;color:#fff;flex-shrink:0">{{ s.name[:2].upper() }}</div>
+              <span style="font-weight:600;color:var(--t0)">{{ s.name }}</span>
+            </div>
+          </td>
+          <td style="font-size:12.5px;color:var(--t2)">{{ s.email or '—' }}</td>
+          <td>
+            {% if s.has_face_data %}
+            <span style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;background:rgba(67,233,123,.1);color:var(--green);border:1px solid rgba(67,233,123,.2)">
+              <i class="fas fa-circle" style="font-size:5px"></i> {{ s.photo_count }} photo{{ 's' if s.photo_count != 1 }}
+            </span>
+            {% else %}
+            <span style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;background:var(--glass);color:var(--t2);border:1px solid var(--b0)">
+              <i class="fas fa-circle" style="font-size:5px"></i> No photos
+            </span>
+            {% endif %}
+          </td>
+          <td>
+            <button class="btn bp btn-sm" onclick="openPhotoUpload({{ s.id }}, '{{ s.name|replace("'","\\'")}}')" >
+              <i class="fas fa-camera"></i> Upload
+            </button>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" style="text-align:center;padding:30px;color:var(--t2)">No students in this class yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endfor %}
+
+<!-- Add Student Modal -->
+<div class="mbg" id="modal-add-student">
+  <div class="modal">
+    <div class="m-title">Add Student <button onclick="closeModal('modal-add-student')" class="bico" style="width:28px;height:28px;font-size:11px"><i class="fas fa-xmark"></i></button></div>
+    <form method="POST" action="{{ url_for('teacher.add_student') }}">
+      <div class="g2">
+        <div class="fg"><label class="fl">Student ID / Roll</label><input name="student_id" class="fc" placeholder="CS2301" required></div>
+        <div class="fg"><label class="fl">Full Name</label><input name="name" class="fc" placeholder="Student Name" required></div>
+      </div>
+      <div class="fg"><label class="fl">Class</label>
+        <select name="class_id" class="fc" required>
+          <option value="">Select Class</option>
+          {% for cls in all_classes %}<option value="{{ cls.id }}">{{ cls.full_name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="fg"><label class="fl">Email (optional)</label><input name="email" type="email" class="fc" placeholder="student@college.edu"></div>
+      <button type="submit" class="btn bp" style="width:100%;justify-content:center"><i class="fas fa-user-plus"></i> Add Student</button>
+    </form>
+  </div>
+</div>
+
+<!-- Import CSV Modal -->
+<div class="mbg" id="modal-import">
+  <div class="modal">
+    <div class="m-title">Import from CSV <button onclick="closeModal('modal-import')" class="bico" style="width:28px;height:28px;font-size:11px"><i class="fas fa-xmark"></i></button></div>
+    <div style="background:rgba(108,99,255,.07);border:1px solid rgba(108,99,255,.18);border-radius:10px;padding:12px;margin-bottom:14px;font-size:12.5px;color:var(--t1)">
+      <strong style="color:var(--brand)">Required columns:</strong><br>
+      <code style="font-family:var(--fm);color:var(--t0);font-size:12px">student_id, name, class_id, email</code>
+    </div>
+    <form method="POST" action="{{ url_for('admin.import_csv') }}" enctype="multipart/form-data">
+      <input type="hidden" name="action" value="import_csv">
+      <div class="fg"><label class="fl">Target Class</label>
+        <select name="import_class_id" class="fc">
+          {% for cls in all_classes %}<option value="{{ cls.id }}">{{ cls.full_name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="fdrop" style="margin-bottom:14px">
+        <input type="file" name="csv_file" accept=".csv" style="display:none">
+        <i class="fas fa-file-csv" style="font-size:28px;color:var(--t2);margin-bottom:10px;display:block"></i>
+        <div data-label style="font-size:13px;color:var(--t1)">Click to browse CSV file</div>
+      </div>
+      <button type="submit" class="btn bp" style="width:100%;justify-content:center"><i class="fas fa-upload"></i> Import</button>
+    </form>
+  </div>
+</div>
+
+<!-- Request Access Modal -->
+<div class="mbg" id="modal-request">
+  <div class="modal">
+    <div class="m-title">Request Subject Access <button onclick="closeModal('modal-request')" class="bico" style="width:28px;height:28px;font-size:11px"><i class="fas fa-xmark"></i></button></div>
+    <div style="font-size:13px;color:var(--t1);margin-bottom:16px">Request permission from admin to mark attendance for a subject.</div>
+    <form method="POST" action="{{ url_for('teacher.request_access') }}">
+      <div class="fg"><label class="fl">Class</label>
+        <select name="class_id" class="fc" id="req-class" onchange="loadSubjects(this.value)" required>
+          <option value="">Select Class</option>
+          {% for cls in all_classes %}<option value="{{ cls.id }}" data-id="{{ cls.id }}">{{ cls.full_name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="fg"><label class="fl">Subject</label>
+        <select name="subject_id" class="fc" id="req-subject" required>
+          <option value="">Select class first</option>
+        </select>
+      </div>
+      <button type="submit" class="btn bp" style="width:100%;justify-content:center"><i class="fas fa-paper-plane"></i> Send Request to Admin</button>
+    </form>
+  </div>
+</div>
+
+<!-- Photo Upload Modal -->
+<div class="mbg" id="modal-photos">
+  <div class="modal">
+    <div class="m-title">
+      Upload Photos — <span id="photo-student-name" style="color:var(--brand)"></span>
+      <button onclick="closeModal('modal-photos')" class="bico" style="width:28px;height:28px;font-size:11px"><i class="fas fa-xmark"></i></button>
+    </div>
+    <div style="font-size:13px;color:var(--t1);margin-bottom:14px;line-height:1.6">Upload 3–5 clear face photos from different angles (front, left, right) for best accuracy.</div>
+    <div class="fdrop" id="photo-drop">
+      <input type="file" id="photo-files" multiple accept="image/*" style="display:none">
+      <i class="fas fa-images" style="font-size:28px;color:var(--t2);margin-bottom:10px;display:block"></i>
+      <div data-label style="font-size:13px;color:var(--t1)">Click or drag photos here</div>
+      <div style="font-size:11.5px;color:var(--t2);margin-top:5px">JPG, PNG, WEBP — multiple files</div>
+    </div>
+    <div id="up-prog" style="display:none;margin:12px 0">
+      <div class="prog"><div class="prog-f" id="up-bar" style="width:0%"></div></div>
+      <div id="up-txt" style="font-size:12px;color:var(--t1);margin-top:6px;text-align:center"></div>
+    </div>
+    <button class="btn bp" style="width:100%;justify-content:center;margin-top:14px" id="up-btn" onclick="submitPhotos()">
+      <i class="fas fa-brain"></i> Upload & Encode Faces
+    </button>
+  </div>
+</div>
+
+<script>
+let upStudentId = null;
+function openPhotoUpload(id, name) {
+  upStudentId = id;
+  document.getElementById('photo-student-name').textContent = name;
+  document.getElementById('photo-files').value = '';
+  document.getElementById('up-prog').style.display = 'none';
+  const lbl = document.querySelector('#photo-drop [data-label]');
+  if(lbl) lbl.textContent = 'Click or drag photos here';
+  openModal('modal-photos');
+}
+document.getElementById('photo-drop').addEventListener('click', () => document.getElementById('photo-files').click());
+document.getElementById('photo-files').addEventListener('change', function() {
+  const lbl = document.querySelector('#photo-drop [data-label]');
+  if(lbl) lbl.textContent = this.files.length + ' photo(s) selected';
+});
+
+async function submitPhotos() {
+  const files = document.getElementById('photo-files').files;
+  if(!files.length) { alert('Select photos first'); return; }
+  const fd = new FormData();
+  Array.from(files).forEach(f => fd.append('photos', f));
+  document.getElementById('up-prog').style.display = 'block';
+  document.getElementById('up-btn').disabled = true;
+  document.getElementById('up-bar').style.width = '40%';
+  document.getElementById('up-txt').textContent = 'Encoding faces...';
+  try {
+    const r = await fetch(`/teacher/upload_student_photos/${upStudentId}`, {method:'POST', body:fd});
+    const data = await r.json();
+    document.getElementById('up-bar').style.width = '100%';
+    document.getElementById('up-txt').textContent = `✓ ${data.total} face encoding(s) saved!`;
+    setTimeout(() => { closeModal('modal-photos'); location.reload(); }, 1400);
+  } catch(e) {
+    document.getElementById('up-txt').textContent = 'Failed. Try again.';
+    document.getElementById('up-btn').disabled = false;
+  }
+}
+
+// Load subjects for selected class in request modal
+const classSubjects = {};
+{% for cls in all_classes %}
+classSubjects[{{ cls.id }}] = [{% for s in cls.subjects %}{id:{{ s.id }},name:'{{ s.name|replace("'","\\'") }}'}{% if not loop.last %},{% endif %}{% endfor %}];
+{% endfor %}
+function loadSubjects(classId) {
+  const sel = document.getElementById('req-subject');
+  sel.innerHTML = '<option value="">Select Subject</option>';
+  (classSubjects[classId]||[]).forEach(s => {
+    const o = document.createElement('option');
+    o.value = s.id; o.textContent = s.name;
+    sel.appendChild(o);
+  });
+}
+</script>
+{% endblock %}

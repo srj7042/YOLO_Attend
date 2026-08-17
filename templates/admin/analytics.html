@@ -1,0 +1,418 @@
+{% extends "base.html" %}
+{% block title %}Analytics — SmartAttend{% endblock %}
+
+{% block head %}
+<style>
+  :root {
+    --primary: var(--brand);
+    --text-main: #1A1025;
+    --text-muted: #8A7A9A;
+  }
+  .dash-hero { margin-bottom: 24px; }
+  .institute-name {
+    font-family: var(--font-heading);
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--primary);
+    margin-bottom: 30px;
+    letter-spacing: -0.5px;
+  }
+  
+  /* Filters Bar */
+  .filters-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: transparent;
+    margin-bottom: 30px;
+  }
+  .filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+  }
+  .filter-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-main);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .filter-select {
+    width: 100%;
+    padding: 14px 16px;
+    border-radius: 12px;
+    border: 1px solid var(--b0);
+    background: var(--bg1);
+    color: var(--t0);
+    font-family: var(--font-body);
+    font-size: 13.5px;
+    font-weight: 500;
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%22//www.w3.org/2000/svg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%238A7A9A%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 16px top 50%;
+    background-size: 10px auto;
+  }
+
+  .btn-apply {
+    background: var(--primary);
+    color: #fff;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: var(--font-body);
+    border: none;
+    padding: 14px 24px;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(91,45,142,0.3);
+    margin-top:22px; 
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* Panel Generic */
+  .panel {
+    background: var(--bg1);
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+    margin-bottom: 30px;
+  }
+  .panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+  }
+  .panel-title {
+    font-family: var(--font-heading);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--primary);
+    margin-bottom: 4px;
+  }
+  .panel-sub {
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  /* Table */
+  .view-link {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--primary);
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table th {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    padding: 14px 12px;
+    border-bottom: 1px solid var(--b0);
+    background: rgba(91,45,142,0.03);
+    text-align: left;
+  }
+  .data-table td {
+    padding: 18px 12px;
+    font-size: 13.5px;
+    border-bottom: 1px solid var(--b0);
+    vertical-align: middle;
+  }
+  .data-table tr:last-child td { border-bottom: none; }
+  .faculty-cell { display: flex; align-items: center; gap: 14px; }
+  .faculty-avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 12px; background: #F0EDF6; color: var(--primary);
+  }
+  
+  .pct-badge {
+    padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;
+  }
+  .badge-high { background: rgba(45,168,79,0.1); color: #2DA84F; border: 1px solid rgba(45,168,79,0.22); }
+  .badge-med { background: rgba(232,82,26,0.1); color: var(--accent); border: 1px solid rgba(232,82,26,0.25); }
+  
+  .perf-container { display: flex; align-items: center; gap: 12px; }
+  .perf-bar-bg { width: 40px; height: 6px; border-radius: 4px; background: var(--b0); overflow: hidden; }
+  .perf-bar-fill { height: 100%; }
+
+  /* Bottom Section */
+  .vis-header {
+    font-family: var(--font-heading);
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-main);
+    margin-bottom: 20px;
+    margin-top: 40px;
+    border-bottom: 1px solid var(--b0);
+    padding-bottom: 12px;
+  }
+  .bottom-grid {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 24px;
+  }
+
+  .chart-area { height: 260px; width: 100%; margin-top: 10px; }
+  .chart-area-donut { height: 200px; width: 100%; display: flex; align-items: center; justify-content:flex-start; padding-left:20px;}
+
+  .donut-container { position: relative; width: 200px; height: 200px; }
+  .donut-inner {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .donut-val { font-family: var(--font-heading); font-size: 32px; font-weight: 800; color: var(--primary); line-height: 1; }
+  .donut-lbl { font-size: 9px; color: var(--text-muted); font-weight: 700; letter-spacing: 0.5px; margin-top: 6px; }
+  
+  .legend-list { display: flex; flex-direction: column; gap: 18px; margin-left: 40px;}
+  .legend-item { display: flex; align-items: flex-start; gap: 10px; }
+  .legend-dot { width: 14px; height: 14px; border-radius: 2px; margin-top: 1px; }
+  .legend-text { font-size: 13px; font-weight: 600; color: var(--text-main); line-height: 1.2; }
+  .legend-sub { font-size: 10px; color: var(--text-muted); margin-top: 4px; }
+
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dash-hero fu">
+  <div class="institute-name">Analytics & Performance Rankings</div>
+</div>
+
+<div class="panel fu fu2">
+  <div class="panel-header">
+    <div>
+      <div class="panel-title">Faculty Impact Analysis</div>
+      <div class="panel-sub">Academic performance summary aggregated by teacher</div>
+    </div>
+    <a href="{{ url_for('admin.staff_log') }}" class="view-link">View All Faculty &rarr;</a>
+  </div>
+
+  <div style="overflow-x:auto;">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Faculty Name</th>
+          <th>Department</th>
+          <th>Total Records</th>
+          <th>Avg Attendance</th>
+          <th>Performance Category</th>
+        </tr>
+      </thead>
+      <tbody>        {% if faculty_stats %}
+          {% for f in faculty_stats %}
+          <tr>
+            <td class="faculty-cell"><div class="faculty-avatar" style="background:var(--bg3);color:var(--primary)">{{ f.initials }}</div> <strong style="color:var(--t0)">{{ f.name }}</strong></td>
+            <td style="color:var(--text-muted)">{{ f.dept }}</td>
+            <td style="color:var(--t1)">{{ f.total_sessions }}</td>
+            <td><span class="pct-badge {% if f.score >= 80 %}badge-high{% else %}badge-med{% endif %}">{{ f.score }}%</span></td>
+            <td>
+              <div class="perf-container">
+                <div class="perf-bar-bg"><div class="perf-bar-fill" style="width: {{ f.score }}%; background: {% if f.score >= 80 %}var(--brand){% else %}var(--accent){% endif %};"></div></div>
+                <span style="font-size:11px; font-weight:600; color:{% if f.score >= 80 %}var(--brand){% else %}var(--accent){% endif %}">{% if f.score >= 80 %}Elite{% else %}Average{% endif %}</span>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="5" style="text-align:center;color:var(--text-muted);padding:32px;">No faculty analytics available yet.</td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="vis-header fu fu3">Visual Representation</div>
+
+<div class="bottom-grid fu fu3">
+  <!-- Bar Chart Panel -->
+  <div class="panel" style="margin-bottom:0">
+    <div class="panel-header" style="margin-bottom: 4px;">
+      <div class="panel-title">Divisional Attendance</div>
+      <div style="font-size:11px; color:var(--text-muted); font-weight:600;"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--primary);margin-right:6px;vertical-align:middle;"></span>Avg %</div>
+    </div>
+    <div class="chart-area">
+      <canvas id="divBarChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Donut Chart Panel -->
+  <div class="panel" style="margin-bottom:0" id="breakdownPanel">
+    <div class="panel-header" style="margin-bottom: 20px;">
+      <div class="panel-title">Attendance Breakdown</div>
+    </div>
+    <div id="noDataMsg" style="text-align:center; padding-top:60px; color:var(--text-muted); font-size:13px; display:none;">
+      Click on a division in the bar chart to view subject breakdown.
+    </div>
+    <div class="chart-area-donut" id="donutContent">
+      <div class="donut-container">
+        <canvas id="subjectDonutChart"></canvas>
+        <div class="donut-inner">
+          <div class="donut-val" id="donutOverall">--</div>
+          <div class="donut-lbl">OVERALL</div>
+        </div>
+      </div>
+      <div class="legend-list" id="donutLegend">
+        <!-- populated by JS -->
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let barChartInstance;
+let donutChartInstance;
+
+// Dynamic data from db
+const classData = {{ class_stats|safe }};
+
+const divLabels = classData.map(c => c.name);
+const divAttendance = classData.map(c => c.pct);
+
+const divisionSubjectData = {};
+classData.forEach(c => {
+  divisionSubjectData[c.name] = {
+    overall: c.overall,
+    subjects: c.subjects
+  };
+});
+
+function initBarChart() {
+  const ctx = document.getElementById('divBarChart').getContext('2d');
+  
+  barChartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: divLabels,
+      datasets: [{
+        label: 'Avg %',
+        data: divAttendance,
+        backgroundColor: 'rgba(28,59,120,0.55)',
+        hoverBackgroundColor: '#0F204C',
+        borderSkipped: false,
+        borderRadius: 4,
+        barPercentage: 0.25
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+            mode: 'index',
+            intersect: false,
+            bodyFont: {family: 'DM Sans'},
+            titleFont: {family: 'DM Sans'},
+            callbacks: {
+              label: function(ctx) { return ctx.raw + '%'; }
+            }
+        }
+      },
+      onClick: (e, elements) => {
+        if(elements.length > 0) {
+          const index = elements[0].index;
+          const division = barChartInstance.data.labels[index];
+          
+          // Highlight logic
+          const bgColors = barChartInstance.data.datasets[0].data.map((_, i) => i === index ? '#0F204C' : 'rgba(28,59,120,0.55)');
+          barChartInstance.data.datasets[0].backgroundColor = bgColors;
+          barChartInstance.update();
+
+          renderDonutChart(division);
+        }
+      },
+      scales: {
+        x: {
+          grid: {display: false, drawBorder: false},
+          ticks: {color: '#8A7A9A', font: {family: 'DM Sans', size: 10, weight: 600}}
+        },
+        y: {
+          display: false, 
+          beginAtZero: true,
+          max: 100
+        }
+      }
+    }
+  });
+}
+
+function renderDonutChart(divisionName) {
+  const dataMap = divisionSubjectData[divisionName];
+  if(!dataMap) return;
+
+  document.getElementById('noDataMsg').style.display = 'none';
+  document.getElementById('donutContent').style.display = 'flex';
+  
+  document.getElementById('donutOverall').innerText = dataMap.overall;
+
+  const ctx = document.getElementById('subjectDonutChart').getContext('2d');
+  if(donutChartInstance) {
+    donutChartInstance.destroy();
+  }
+
+  donutChartInstance = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: dataMap.subjects.map(s => s.name),
+      datasets: [{
+        data: dataMap.subjects.map(s => s.val),
+        backgroundColor: dataMap.subjects.map(s => s.color),
+        borderWidth: 0,
+        hoverOffset: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '72%',
+      plugins: { legend: { display: false }, tooltip: { bodyFont: {family: 'DM Sans'} } }
+    }
+  });
+
+  // Render HTML Legend
+  let legendHTML = '';
+  dataMap.subjects.forEach(s => {
+    legendHTML += `
+      <div class="legend-item">
+        <div class="legend-dot" style="background: ${s.color}"></div>
+        <div>
+          <div class="legend-text">${s.name}</div>
+          <div class="legend-sub">${s.weight}</div>
+        </div>
+      </div>
+    `;
+  });
+  document.getElementById('donutLegend').innerHTML = legendHTML;
+}
+
+function refreshCharts() {
+  // Resets chart selection entirely to waiting mode
+  barChartInstance.data.datasets[0].backgroundColor = 'rgba(28,59,120,0.55)';
+  barChartInstance.update();
+  
+  document.getElementById('noDataMsg').style.display = 'block';
+  document.getElementById('donutContent').style.display = 'none';
+}
+
+window.addEventListener('load', () => {
+  initBarChart();
+  // Show no-selection state by default
+  document.getElementById('noDataMsg').style.display = 'block';
+  document.getElementById('donutContent').style.display = 'none';
+});
+</script>
+{% endblock %}

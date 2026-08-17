@@ -1,0 +1,428 @@
+{% extends "base.html" %}
+{% block title %}Academics & Lectures — SmartAttend{% endblock %}
+
+{% block content %}
+<style>
+/* Reset & Fonts overlay */
+h1, h2, h3 { font-family: var(--font-heading); font-weight: 800; margin: 0; }
+.step-label { font-size: 10px; font-weight: 800; color: var(--accent); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 4px; display: block; }
+.step-title { font-size: 24px; color: var(--brand-l); margin-bottom: 24px; }
+.card-layer { background: var(--bg1); border-radius: 20px; padding: 32px; box-shadow: 0 10px 40px rgba(0,0,0,0.03); margin-bottom: 40px; transition: opacity 0.4s; position: relative; }
+.card-layer.locked { opacity: 0.4; pointer-events: none; }
+
+/* Form Elements */
+.input-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 24px; }
+.input-group { display: flex; flex-direction: column; gap: 8px; }
+.input-label { font-size: 13px; font-weight: 700; color: var(--brand-l); }
+.input-field { background: var(--bg0); border: 1px solid transparent; border-radius: 12px; padding: 14px 16px; font-size: 14px; font-family: var(--font-body); color: var(--t0); transition: border 0.2s, background 0.2s; outline: none; }
+.input-field:focus { border-color: var(--b2); background: var(--bg1); }
+.input-field::placeholder { color: var(--t2); font-weight: 500; }
+select.input-field { appearance: none; background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23333' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e"); background-repeat: no-repeat; background-position: right 16px center; background-size: 14px; }
+
+.btn-purple { background: var(--brand); color: #FFFFFF; border: none; border-radius: 12px; padding: 14px 28px; font-size: 14px; font-weight: 700; font-family: var(--font-body); cursor: pointer; transition: all 0.2s ease; display: inline-flex; justify-content: center; align-items: center; gap: 8px; }
+.btn-purple:hover { background: var(--brand-l); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(74,20,140,0.3); }
+
+/* Calendar Grid */
+.cal-wrapper { border: 1px solid var(--b0); border-radius: 16px; overflow: hidden; background: var(--bg1); margin-bottom: 24px; }
+.cal-header-row { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; background: var(--bg2); border-bottom: 1px solid var(--b0); }
+.cal-header-cell { padding: 16px 0; font-size: 10px; font-weight: 800; font-family: var(--font-mono); color: var(--t1); }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); border-top: none; }
+.cal-cell { position: relative; height: 110px; border-right: 1px solid #F0F0F0; border-bottom: 1px solid var(--b0); cursor: pointer; transition: background 0.2s; display:flex; flex-direction: column; padding: 12px; }
+.cal-cell:nth-child(7n) { border-right: none; }
+.cal-date { font-size: 14px; font-weight: 500; color: var(--t0); }
+.cal-date.faded { color: #CCC; }
+.cal-interaction { margin: auto; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; transition: all 0.2s; }
+.cal-cell:hover:not(.selected) .cal-interaction { border: 1px dashed var(--b2); color: var(--b2); opacity: 1; }
+.cal-cell:hover:not(.selected) .cal-interaction::before { content: '\f067'; font-family: "Font Awesome 6 Free"; font-weight: 900; font-size:14px;}
+.cal-cell.selected .cal-interaction { background: var(--accent); color: #FFF; box-shadow: 0 4px 16px rgba(255,140,0,0.4); }
+.cal-cell.selected .cal-interaction::before { content: '\f00c'; font-family: "Font Awesome 6 Free"; font-weight: 900; font-size:16px; }
+
+/* Time Slots */
+.slot-row { border: 1px solid var(--b0); border-radius: 12px; padding: 16px 24px; margin-bottom: 16px; display: flex; align-items: center; gap: 32px; border-left: 6px solid var(--accent); background: var(--bg1); }
+.slot-date-info { min-width: 120px; }
+.slot-date-primary { font-size: 16px; font-weight: 800; color: var(--brand-l); font-family: var(--font-heading); margin-bottom: 4px; }
+.slot-date-sub { font-size: 10px; font-weight: 700; color: var(--t2); text-transform: uppercase; letter-spacing: 0.5px; }
+.slot-pills { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.pill-time { border: 1px solid var(--b1); color: var(--brand); background: transparent; padding: 10px 16px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.2s; font-family: var(--font-mono); }
+.pill-time:hover:not(.active) { background: rgba(74,20,140,0.05); }
+.pill-time.active { background: var(--brand); color: #FFFFFF; border-color: var(--brand); box-shadow: 0 4px 12px rgba(74,20,140,0.3); }
+.pill-break { color: var(--t2); font-size: 11px; font-weight: 600; font-style: italic; background: var(--bg2); padding: 8px 12px; border-radius: 8px; border: 1px dashed #E0E0E0; }
+
+.sync-badge { background: var(--glass2); color: var(--brand); padding: 8px 16px; border-radius: 20px; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; }
+
+/* Custom light theme tweaks for this specific page structure */
+body { background: var(--bg0) !important; }
+.topbar { background: transparent !important; border:none!important; box-shadow:none!important; }
+</style>
+
+<!-- Pending Approval Overlay -->
+{% if not is_approved %}
+<div style="background:linear-gradient(135deg,#0F204C,#1C3B78); color:#fff; border-radius:16px; padding:28px 32px; margin-bottom:32px; display:flex; align-items:center; gap:24px;">
+  <div style="width:52px;height:52px;border-radius:50%;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+    <i class="fas fa-clock" style="font-size:22px;"></i>
+  </div>
+  <div>
+    <div style="font-weight:700;font-size:17px;margin-bottom:6px;">Account Pending Approval</div>
+    <div style="font-size:13px;opacity:0.8;">Your account is under review by the administrator. You can browse the interface, but all actions will be enabled once your account is approved. Please check back soon.</div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Top Layout -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px;">
+  <h1 style="color: var(--brand); font-size: 20px;"><span style="opacity:0.6;font-weight:600;">Academic Management</span></h1>
+</div>
+
+<!-- STEP 01: Subject Selection -->
+<div class="card-layer" id="step1">
+  <span class="step-label">STEP 01</span>
+  <h2 class="step-title">Choose Your Subject</h2>
+  
+  <div class="input-grid" style="margin-bottom: 32px;">
+    <div class="input-group">
+      <label class="input-label">Subject Name</label>
+      <input type="text" class="input-field" id="sName" placeholder="e.g. Advanced AI Models" {% if not is_approved %}disabled{% endif %}>
+    </div>
+    <div class="input-group">
+      <label class="input-label">Subject Code</label>
+      <input type="text" class="input-field" placeholder="e.g. CS-402-AI" id="sCode" {% if not is_approved %}disabled{% endif %}>
+    </div>
+    <div class="input-group">
+      <label class="input-label">Department</label>
+      <select class="input-field" id="sDept" {% if not is_approved %}disabled{% endif %}>
+        <option value="" disabled selected>Select Department</option>
+        {% if departments and departments|length > 0 %}
+          {% set year_labels = {1: 'FY', 2: 'SY', 3: 'TY', 4: 'BTech'} %}
+          {% for d in departments %}
+          <option value="{{ d.name }}" data-year="{{ {1:'First Year', 2:'Second Year', 3:'Third Year', 4:'BTech'}[d.year] or 'First Year' }}">{{ d.name }} ({{ year_labels[d.year] or 'FY' }})</option>
+          {% endfor %}
+        {% else %}
+          <option disabled>No departments added by admin yet</option>
+        {% endif %}
+      </select>
+    </div>
+    <div class="input-group">
+      <label class="input-label">Division</label>
+      <select class="input-field" id="sDiv" {% if not is_approved %}disabled{% endif %}>
+        <option>Division A</option>
+        <option>Division B</option>
+        <option>Division C</option>
+      </select>
+    </div>
+  </div>
+  
+  <div style="display: flex; justify-content: flex-end;">
+    <button class="btn-purple" onclick="unlockStep2()" {% if not is_approved %}disabled style="opacity:0.5;cursor:not-allowed;"{% endif %}>Send Approval</button>
+  </div>
+</div>
+
+<!-- STEP 02: Mark Your Lecture -->
+<div class="card-layer locked" id="step2">
+  <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px;">
+    <div>
+      <span class="step-label">STEP 02</span>
+      <h2 class="step-title" style="margin-bottom:0;">Mark Your Lecture</h2>
+    </div>
+    <button type="button" style="background:transparent; border:none; color:var(--brand); font-weight:800; font-size:13px; cursor:pointer;" onclick="setRecurring()"><i class="fas fa-calendar-alt"></i> Set Recurring</button>
+  </div>
+  
+  <div class="cal-wrapper">
+    <!-- Month Navigation -->
+    <div style="display:flex; align-items:center; justify-content:space-between; padding:16px 24px; background:var(--bg2); border-bottom:1px solid var(--b0);">
+      <button type="button" onclick="changeMonth(-1)" style="border:none; background:var(--bg1); width:36px; height:36px; border-radius:8px; cursor:pointer; font-size:16px; color:var(--brand); display:flex; align-items:center; justify-content:center; transition:all 0.15s;" onmouseover="this.style.background='var(--brand)';this.style.color='#fff'" onmouseout="this.style.background='var(--bg1)';this.style.color='var(--brand)'"><i class="fas fa-chevron-left"></i></button>
+      <div id="calMonthLabel" style="font-family:var(--font-heading); font-size:18px; font-weight:800; color:var(--brand-l);"></div>
+      <button type="button" onclick="changeMonth(1)" style="border:none; background:var(--bg1); width:36px; height:36px; border-radius:8px; cursor:pointer; font-size:16px; color:var(--brand); display:flex; align-items:center; justify-content:center; transition:all 0.15s;" onmouseover="this.style.background='var(--brand)';this.style.color='#fff'" onmouseout="this.style.background='var(--bg1)';this.style.color='var(--brand)'"><i class="fas fa-chevron-right"></i></button>
+    </div>
+    <div class="cal-header-row">
+      <div class="cal-header-cell">MON</div><div class="cal-header-cell">TUE</div><div class="cal-header-cell">WED</div>
+      <div class="cal-header-cell">THU</div><div class="cal-header-cell">FRI</div>
+      <div class="cal-header-cell" style="color:var(--accent);">SAT</div><div class="cal-header-cell" style="color:var(--accent);">SUN</div>
+    </div>
+    <div class="cal-grid" id="calendarGrid">
+      <!-- Generated by JS -->
+    </div>
+  </div>
+  
+  <div style="display: flex; justify-content: flex-end;">
+    <button class="btn-purple" onclick="unlockStep3()">Confirm Dates <i class="fas fa-arrow-right"></i></button>
+  </div>
+</div>
+
+<!-- STEP 03: Time Slots -->
+<div class="card-layer locked" id="step3" style="background:transparent; box-shadow:none; padding:10px 0;">
+  <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 32px;">
+    <div>
+      <span class="step-label">STEP 03</span>
+      <h2 class="step-title" style="margin-bottom:0;">Choose Your Slot</h2>
+    </div>
+    <div class="sync-badge">
+      <i class="fas fa-info-circle"></i> Time slots are synchronized across all departments
+    </div>
+  </div>
+  
+  <div id="slotContainer">
+    <!-- Built dynamically by JS when Step 2 confirmed -->
+  </div>
+  
+  <div style="display: flex; justify-content: center; margin-top: 40px;">
+    <button class="btn-purple" style="font-size: 16px; padding: 18px 48px; border-radius: 16px;" onclick="submitFinal()">Submit Final Schedule <i class="fas fa-paper-plane" style="margin-left:6px;"></i></button>
+  </div>
+</div>
+
+
+<script>
+// --- STATE MANAGEMENT ---
+let selectedDates = [];
+
+const timeSlots = [
+    { label: "09:15 - 10:15", type: "slot" },
+    { label: "10:15 - 11:15", type: "slot" },
+    { label: "(15 min break)", type: "break" },
+    { label: "11:30 - 12:30", type: "slot" },
+    { label: "12:30 - 01:30", type: "slot" },
+    { label: "(45 min break)", type: "break" },
+    { label: "02:15 - 03:15", type: "slot" },
+    { label: "03:15 - 04:15", type: "slot" }
+];
+
+function showToast(msg, isError=false) {
+    const t = document.createElement('div');
+    t.innerText = msg;
+    t.style.position = 'fixed';
+    t.style.bottom = '20px';
+    t.style.right = '20px';
+    t.style.background = isError ? '#D32F2F' : '#2E1A47';
+    t.style.color = '#FFF';
+    t.style.padding = '16px 24px';
+    t.style.borderRadius = '12px';
+    t.style.fontFamily = 'var(--font-body)';
+    t.style.fontWeight = '700';
+    t.style.boxShadow = '0 10px 30px rgba(0,0,0,0.2)';
+    t.style.zIndex = '99999';
+    t.style.opacity = '0';
+    t.style.transform = 'translateY(20px)';
+    t.style.transition = '0.3s';
+    document.body.appendChild(t);
+    setTimeout(() => { t.style.opacity='1'; t.style.transform='translateY(0)'; }, 10);
+    setTimeout(() => { t.style.opacity='0'; setTimeout(()=>t.remove(), 300); }, 3000);
+}
+
+function unlockStep2() {
+    if(document.getElementById('sName').value.trim() === "") {
+        showToast("Please enter a subject name first.", true);
+        return;
+    }
+    document.getElementById('step2').classList.remove('locked');
+    document.getElementById('step2').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function unlockStep3() {
+    if(selectedDates.length === 0) {
+        showToast("Please mark at least one lecture date on the calendar.", true);
+        return;
+    }
+    document.getElementById('step3').classList.remove('locked');
+    generateTimeSlotsUI();
+    document.getElementById('step3').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// Calendar state
+let calYear = new Date().getFullYear();
+let calMonth = new Date().getMonth();
+const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+function changeMonth(dir) {
+    calMonth += dir;
+    if (calMonth > 11) { calMonth = 0; calYear++; }
+    if (calMonth < 0) { calMonth = 11; calYear--; }
+    renderCalendar();
+}
+
+function renderCalendar() {
+    const grid = document.getElementById('calendarGrid');
+    grid.innerHTML = "";
+    
+    const year = calYear;
+    const month = calMonth;
+    
+    // Update month label
+    document.getElementById('calMonthLabel').textContent = `${monthNames[month]} ${year}`;
+    
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const monthDays = lastDay.getDate();
+    
+    // Monday-based start: Mon=0, Sun=6
+    let startDay = (firstDay.getDay() + 6) % 7;
+    const prevMonthLast = new Date(year, month, 0).getDate();
+    
+    const totalCells = Math.ceil((startDay + monthDays) / 7) * 7;
+    let currentHtml = "";
+    
+    for(let i = 0; i < totalCells; i++) {
+        let isFaded = false;
+        let dayNum = 0;
+        
+        if (i < startDay) {
+            dayNum = prevMonthLast - startDay + 1 + i;
+            isFaded = true;
+        } else if (i < startDay + monthDays) {
+            dayNum = i - startDay + 1;
+        } else {
+            dayNum = i - startDay - monthDays + 1;
+            isFaded = true;
+        }
+        
+        let isoDateStr = '';
+        if (!isFaded) {
+            isoDateStr = `${year}-${(month+1).toString().padStart(2,'0')}-${dayNum.toString().padStart(2, '0')}`;
+        }
+        
+        // Check if this date was already selected
+        const isSelected = !isFaded && selectedDates.some(d => d.iso === isoDateStr);
+        
+        currentHtml += `
+            <div class="cal-cell${isSelected ? ' selected' : ''}" ${!isFaded ? `onclick="toggleDate(this, '${isoDateStr}', ${dayNum})"` : ''}>
+                <div class="cal-date ${isFaded ? 'faded' : ''}">${dayNum}</div>
+                ${!isFaded ? `<div class="cal-interaction"></div>` : ''}
+            </div>
+        `;
+    }
+    grid.innerHTML = currentHtml;
+}
+
+function toggleDate(element, isoString, dayNumber) {
+    if(element.classList.contains('selected')) {
+        element.classList.remove('selected');
+        selectedDates = selectedDates.filter(d => d.iso !== isoString);
+    } else {
+        element.classList.add('selected');
+        const days = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"];
+        const gridIndex = Array.from(element.parentNode.children).indexOf(element);
+        const dayName = days[gridIndex % 7];
+        selectedDates.push({ iso: isoString, day: dayNumber, dayName: dayName, original: true });
+    }
+    selectedDates.sort((a,b) => a.iso.localeCompare(b.iso));
+}
+
+function setRecurring() {
+    if(selectedDates.length === 0) {
+        showToast("Select at least one date first to apply recurring.", true);
+        return;
+    }
+    let newDates = [];
+    selectedDates.forEach(d => {
+        if(d.original) {
+            const curDate = new Date(d.iso);
+            const nextDate = new Date(curDate);
+            nextDate.setDate(curDate.getDate() + 7);
+            const nextDay = nextDate.getDate();
+            const nextIso = `${nextDate.getFullYear()}-${(nextDate.getMonth()+1).toString().padStart(2,'0')}-${nextDay.toString().padStart(2,'0')}`;
+            if(!selectedDates.some(existing => existing.iso === nextIso) && !newDates.some(n => n.iso === nextIso)) {
+                newDates.push({ iso: nextIso, day: nextDay, dayName: d.dayName, original: false });
+            }
+        }
+    });
+
+    if(newDates.length > 0) {
+        selectedDates = selectedDates.concat(newDates);
+        selectedDates.sort((a,b) => a.iso.localeCompare(b.iso));
+        
+        // Re-render calendar to visually highlight new selections
+        renderCalendar();
+        showToast("Schedule repeated for next week!");
+    } else {
+        showToast("Could not recur. Dates out of month bounds.", true);
+    }
+}
+
+function generateTimeSlotsUI() {
+    const container = document.getElementById('slotContainer');
+    container.innerHTML = "";
+    
+    selectedDates.forEach(dateObj => {
+        let pillsHtml = "";
+        timeSlots.forEach((pill, idx) => {
+            if(pill.type === "slot") {
+                pillsHtml += `<button type="button" class="pill-time" onclick="togglePill(this)">${pill.label}</button>`;
+            } else {
+                pillsHtml += `<div class="pill-break">${pill.label}</div>`;
+            }
+        });
+        
+        const cardHtml = `
+            <div class="slot-row" data-date="${dateObj.iso}">
+                <div class="slot-date-info">
+                    <div class="slot-date-primary">${new Date(dateObj.iso).toLocaleDateString('en-US', {month:'short', day:'2-digit', year:'numeric'})}</div>
+                    <div class="slot-date-sub">${dateObj.dayName}</div>
+                </div>
+                <div class="slot-pills">
+                    ${pillsHtml}
+                </div>
+            </div>
+        `;
+        container.innerHTML += cardHtml;
+    });
+}
+
+function togglePill(pillBtn) {
+    if(pillBtn.classList.contains('active')) {
+        pillBtn.classList.remove('active');
+    } else {
+        pillBtn.classList.add('active');
+    }
+}
+
+function submitFinal() {
+    const sName = document.getElementById('sName').value;
+    const sCode = document.getElementById('sCode').value;
+    const sDeptEl = document.getElementById('sDept');
+    const sDept = sDeptEl.value;
+    const sYear = sDeptEl.options[sDeptEl.selectedIndex]?.getAttribute('data-year') || 'First Year';
+    const sDiv = document.getElementById('sDiv').value;
+    
+    if(!sName || !sCode) {
+        showToast("Please ensure Subject Name and Code are filled.", true);
+        return;
+    }
+
+    let payload = {
+        name: sName,
+        code: sCode,
+        dept: sDept,
+        year: sYear,
+        division: sDiv,
+        dates: []
+    };
+    
+    document.querySelectorAll('.slot-row').forEach(row => {
+        let dateIso = row.getAttribute('data-date');
+        let activePills = row.querySelectorAll('.pill-time.active');
+        let slots = [];
+        activePills.forEach(p => slots.push(p.innerText));
+        if(slots.length > 0) {
+            payload.dates.push({ date: dateIso, times: slots });
+        }
+    });
+
+    // Create a hidden form and post precisely what we need to backend
+    const f = document.createElement('form');
+    f.method = 'POST';
+    f.action = "{{ url_for('teacher.lectures') }}";
+    
+    const i = document.createElement('input');
+    i.type = 'hidden';
+    i.name = 'payload';
+    i.value = JSON.stringify(payload);
+    
+    f.appendChild(i);
+    document.body.appendChild(f);
+    showToast("Transmitting sequence to admin command center...");
+    setTimeout(() => { f.submit(); }, 800);
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    renderCalendar();
+});
+</script>
+{% endblock %}

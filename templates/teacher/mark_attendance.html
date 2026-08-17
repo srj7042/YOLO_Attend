@@ -1,0 +1,388 @@
+{% extends "base.html" %}
+{% block title %}Vision Attendance Console — SmartAttend{% endblock %}
+
+{% block content %}
+<style>
+/* Attendance Dashboard Layout */
+.attendance-layout { display: grid; grid-template-columns: 380px 1fr; gap: 24px; align-items: start; }
+
+.console-card { background: var(--glass); border: 1px solid var(--b0); border-radius: 20px; padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
+.console-header { margin-bottom: 24px; padding-bottom: 12px; border-bottom: 1px solid var(--b0); }
+.console-title { font-family: var(--font-heading); font-size: 20px; font-weight: 800; color: var(--t0); margin-bottom: 4px; }
+.console-subtitle { font-size: 13px; color: var(--t2); }
+
+/* Vision Control Panel */
+.upload-zone { border: 2px dashed var(--b2); border-radius: 16px; padding: 40px 20px; text-align: center; background: rgba(0,0,0,0.02); cursor: pointer; transition: all 0.2s; position: relative; margin-bottom: 20px; min-height: 200px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.upload-zone:hover { background: rgba(108, 99, 255, 0.05); border-color: var(--brand); }
+.upload-zone i { font-size: 40px; color: var(--brand); margin-bottom: 16px; }
+
+.process-btn { width: 100%; padding: 14px; border: none; border-radius: 12px; background: linear-gradient(135deg, var(--brand), var(--accent)); color: white; font-family: var(--font-heading); font-weight: 700; font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: transform 0.2s, box-shadow 0.2s; }
+.process-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(108, 99, 255, 0.3); }
+.process-btn:active { transform: translateY(0); }
+
+/* Roster Table */
+.roster-card { flex: 1; min-height: 500px; }
+.roster-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.roster-stats { display: flex; gap: 12px; }
+.stat-pill { padding: 6px 14px; border-radius: 30px; font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+.stat-pill.pres { background: rgba(45, 168, 79, 0.1); color: #2DA84F; }
+.stat-pill.abs { background: rgba(230, 57, 70, 0.1); color: #E63946; }
+
+.roster-table { width: 100%; border-collapse: collapse; }
+.roster-table th { text-align: left; padding: 12px 16px; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--t2); border-bottom: 1px solid var(--b0); }
+.roster-table td { padding: 14px 16px; border-bottom: 1px solid var(--b0); vertical-align: middle; }
+
+.st-info { display: flex; align-items: center; gap: 12px; }
+.st-avatar { width: 32px; height: 32px; border-radius: 8px; background: var(--b1); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--t1); }
+.st-name { font-weight: 700; color: var(--t0); font-size: 14px; }
+.st-id { font-size: 11px; color: var(--t2); }
+
+.status-pill { padding: 4px 12px; border-radius: 6px; font-size: 11px; font-weight: 700; display: inline-block; cursor: pointer; transition: all 0.2s; border: 1px solid transparent; min-width: 80px; text-align: center; }
+.status-pill.PRESENT { background: rgba(45, 168, 79, 0.1); color: #2DA84F; }
+.status-pill.ABSENT { background: rgba(230, 57, 70, 0.1); color: #E63946; }
+.status-pill.NOT-MARKED { background: rgba(0,0,0,0.05); color: var(--t2); }
+
+.confidence-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.dot-high { background: #2DA84F; box-shadow: 0 0 8px #2DA84F; }
+.dot-none { background: #E63946; opacity: 0.3; }
+
+.toggle-btn { background: var(--b1); border: 1px solid var(--b0); color: var(--t1); padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; }
+.toggle-btn:hover { background: var(--b2); color: var(--t0); }
+
+/* Filters Bar */
+.filters-bar { background: var(--glass); border: 1px solid var(--b0); border-radius: 16px; padding: 16px 24px; margin-bottom: 30px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+.filter-item { display: flex; flex-direction: column; gap: 4px; }
+.filter-label { font-size: 10px; font-weight: 700; color: var(--t2); text-transform: uppercase; }
+.filter-select { background: transparent; border: none; font-family: var(--font-heading); font-weight: 700; color: var(--t0); font-size: 14px; cursor: pointer; padding-right: 20px; outline: none; }
+
+.export-group { margin-left: auto; display: flex; gap: 8px; }
+.btn-export { padding: 8px 14px; border-radius: 8px; border: 1px solid var(--b0); background: white; font-size: 12px; font-weight: 700; color: var(--t1); cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s; }
+.btn-export:hover { background: var(--b1); color: var(--t0); border-color: var(--b2); }
+</style>
+
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+    <div>
+        <h1 style="font-family:var(--font-heading); font-weight:800; font-size:26px; color:var(--t0); margin-bottom:2px;">Precision Vision Hub</h1>
+        <p style="font-size:13px; color:var(--t2);">Real-time classroom analysis and attendance management.</p>
+    </div>
+</div>
+
+<div class="filters-bar">
+    <div class="filter-item">
+        <label class="filter-label">Subject</label>
+        <select class="filter-select" id="subjectFilter" onchange="loadSchedules(this.value)">
+            <option value="">Choose Subject</option>
+            {% for s in approved_subjects %}
+            <option value="{{ s.id }}" {% if subject and subject.id == s.id %}selected{% endif %}>{{ s.name }} ({{ s.class_ref.section }})</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div style="width:1px; height:24px; background:var(--b0);"></div>
+    <div class="filter-item">
+        <label class="filter-label">Date</label>
+        <select class="filter-select" id="dateFilter" onchange="updateFilters()">
+            <option value="{{ att_date }}">{{ att_date }}</option>
+            {% for d in approved_dates %}
+                {% if d != att_date %}
+                <option value="{{ d }}">{{ d }}</option>
+                {% endif %}
+            {% endfor %}
+        </select>
+    </div>
+    <div style="width:1px; height:24px; background:var(--b0);"></div>
+    <div class="filter-item">
+        <label class="filter-label">Lecture Slot</label>
+        <select class="filter-select" id="timeFilter">
+            <option value="auto">Automatic (Now)</option>
+            {% for slot in current_slots %}
+            <option value="{{ slot }}">{{ slot }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="export-group">
+        <button class="btn-export" onclick="exportData('csv')"><i class="fas fa-file-csv" style="color:#2DA84F;"></i> CSV</button>
+        <button class="btn-export" onclick="exportData('pdf')"><i class="fas fa-file-pdf" style="color:#E63946;"></i> PDF</button>
+    </div>
+</div>
+
+<div class="attendance-layout">
+    <!-- Left Column: Vision Hub -->
+    <div class="console-card">
+        <div class="console-header">
+            <div style="font-weight:800; font-size:14px; color:var(--t0); display:flex; align-items:center; gap:8px;">
+                <i class="fas fa-microchip" style="color:var(--brand);"></i> AUTOMATED VISION
+            </div>
+        </div>
+        
+        <form id="visionForm" method="POST" enctype="multipart/form-data" action="{{ url_for('teacher.mark_attendance') }}">
+            <input type="hidden" name="subject_id" id="formSubjectId">
+            <input type="hidden" name="date" id="formDate">
+            <input type="hidden" name="time" id="formTime">
+            
+            <div class="upload-zone" onclick="document.getElementById('classroomPhoto').click()" id="dropZone">
+                <input type="file" id="classroomPhoto" name="photos" style="display:none;" accept="image/*" multiple onchange="handleFileSelect(this)">
+                <div id="uploadPreview">
+                    <i class="fas fa-camera-retro"></i>
+                    <div style="font-weight:700; color:var(--t0); font-size:15px;">Click or Drag Image Here</div>
+                    <div style="font-size:12px; color:var(--t2); margin-top:4px;">Supports JPG, PNG (Max 16MB)</div>
+                </div>
+            </div>
+
+            <button type="submit" class="process-btn" id="processBtn" {% if is_finalized %}disabled style="opacity:0.5; cursor:not-allowed;"{% endif %}>
+                <span>{% if is_finalized %}SESSION LOCKED{% else %}Process with YOLOv8{% endif %}</span>
+                <i class="fas fa-{% if is_finalized %}lock{% else %}arrow-right{% endif %}"></i>
+            </button>
+        </form>
+
+        <div style="margin-top:24px; padding:16px; background:rgba(0,0,0,0.03); border-radius:12px; font-size:12px; color:var(--t1); line-height:1.6;">
+            <strong style="color:var(--t0); display:block; margin-bottom:4px;">INSTRUCTIONS:</strong>
+            1. Select subject and date above.<br>
+            2. Upload wide-angle shots of the classroom.<br>
+            3. YOLOv8 will scan and match faces automatically.<br>
+            4. Review results in the roster on the right.
+            
+            <div style="margin-top:20px; display:flex; flex-direction:column; gap:10px;">
+                <button class="process-btn" id="tryAgainBtn" onclick="tryAgainDeep()" style="display:{% if is_processed and not is_finalized %}flex{% else %}none{% endif %}; background:var(--brand); border-color:var(--brand); font-size:12px; height:40px; margin-top:0;">
+                    <i class="fas fa-redo" style="margin-right:8px;"></i> Try Again (Deep Scan)
+                </button>
+                <button class="process-btn" id="submitFinalBtn" onclick="finalizeSession()" style="display:{% if is_processed and not is_finalized %}flex{% else %}none{% endif %}; background:#2DA84F; border-color:#2DA84F; font-size:14px; font-weight:700; height:44px; margin-top:0;">
+                    <i class="fas fa-check-double" style="margin-right:8px;"></i> Submit Final & Lock
+                </button>
+                {% if is_finalized %}
+                <div style="background:rgba(45, 168, 79, 0.1); color:#2DA84F; padding:12px; border-radius:8px; display:flex; align-items:center; gap:8px; font-weight:700;">
+                    <i class="fas fa-shield-check"></i> Session Locked & Analytics Updated
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column: Roster -->
+    <div class="console-card roster-card">
+        <div class="roster-header">
+            <div style="font-weight:800; font-size:14px; color:var(--t0);">CLASS ROSTER <span style="font-weight:400; color:var(--t2);">— {{ subject.class_ref.full_name if subject else '' }}</span></div>
+            <div class="roster-stats">
+                <div class="stat-pill pres"><i class="fas fa-check-circle"></i> <span id="presCount">0</span></div>
+                <div class="stat-pill abs"><i class="fas fa-times-circle"></i> <span id="absCount">0</span></div>
+            </div>
+        </div>
+
+        <div style="overflow-x:auto;">
+            <table class="roster-table">
+                <thead>
+                    <tr>
+                        <th>Student</th>
+                        <th>Face P.</th>
+                        <th>Status</th>
+                        <th>Method</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="rosterBody">
+                    {% if subject and student_data %}
+                        {% for st in student_data %}
+                        <tr>
+                            <td>
+                                <div class="st-info">
+                                    <div class="st-avatar">{{ st.obj.name[:1] }}</div>
+                                    <div>
+                                        <div class="st-name">{{ st.obj.name }}</div>
+                                        <div class="st-id">{{ st.obj.student_id }}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                {% if st.is_present %}
+                                    <div class="confidence-dot dot-high" title="Match Confidence: {{ st.confidence }}%"></div>
+                                {% else %}
+                                    <div class="confidence-dot dot-none"></div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="status-pill {{ 'PRESENT' if st.is_present else ('ABSENT' if st.method else 'NOT-MARKED') }}" 
+                                     id="pill-{{ st.obj.id }}" 
+                                     onclick="toggleStatus({{ st.obj.id }})">
+                                    {{ 'PRESENT' if st.is_present else ('ABSENT' if st.method else 'NOT MARKED') }}
+                                </div>
+                            </td>
+                            <td style="font-size:11px; font-weight:700; color:var(--t2);" id="method-{{ st.obj.id }}">
+                                {{ st.method.upper() if st.method else '-' }}
+                            </td>
+                            <td>
+                                <button class="toggle-btn" onclick="toggleStatus({{ st.obj.id }})" {% if is_finalized %}disabled style="opacity:0.3; cursor:not-allowed;"{% endif %}>Toggle</button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="5" style="text-align:center; padding:100px 40px; color:var(--t2);">
+                                <i class="fas fa-users" style="font-size:40px; display:block; margin-bottom:12px; opacity:0.2;"></i>
+                                Select a subject to load students and begin marking.
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+function handleFileSelect(input) {
+    if(input.files && input.files[0]) {
+        const preview = document.getElementById('uploadPreview');
+        preview.innerHTML = `
+            <div style="position:relative; width:100px; height:100px; margin:0 auto 12px;">
+                <img src="${URL.createObjectURL(input.files[0])}" style="width:100%; height:100%; object-fit:cover; border-radius:12px;">
+                <div style="position:absolute; top:-8px; right:-8px; background:var(--brand); color:white; width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; border:2px solid white;">${input.files.length}</div>
+            </div>
+            <div style="font-weight:700; color:var(--t0); font-size:14px;">${input.files.length} Image(s) Ready</div>
+            <div style="font-size:12px; color:var(--brand); font-weight:700;">Click to change</div>
+        `;
+    }
+}
+
+async function loadSchedules(sid) {
+    if(!sid) {
+        window.location.href = `{{ url_for('teacher.mark_attendance') }}`;
+        return;
+    }
+    window.location.href = `{{ url_for('teacher.mark_attendance') }}?subject_id=${sid}`;
+}
+
+function updateFilters() {
+    const sid = document.getElementById('subjectFilter').value;
+    const date = document.getElementById('dateFilter').value;
+    window.location.href = `/teacher/mark-attendance?subject_id=${sid}&date=${date}`;
+}
+
+function tryAgainDeep() {
+    const form = document.getElementById('visionForm');
+    const retryInput = document.createElement('input');
+    retryInput.type = 'hidden';
+    retryInput.name = 'retry';
+    retryInput.value = '1';
+    form.appendChild(retryInput);
+    
+    document.getElementById('tryAgainBtn').innerHTML = '<span><i class="fas fa-spinner fa-spin"></i> Deep Scanning...</span>';
+    document.getElementById('tryAgainBtn').disabled = true;
+    
+    // Ensure form values are synced
+    document.getElementById('formSubjectId').value = document.getElementById('subjectFilter').value;
+    document.getElementById('formDate').value = document.getElementById('dateFilter').value;
+    document.getElementById('formTime').value = document.getElementById('timeFilter').value;
+    
+    form.submit();
+}
+
+async function finalizeSession() {
+    if (!confirm('Finalize this session? This will lock the data and update all analytics. You won\'t be able to edit this session again.')) return;
+    
+    const sid = document.getElementById('subjectFilter').value;
+    const date = document.getElementById('dateFilter').value;
+    
+    const btn = document.getElementById('submitFinalBtn');
+    btn.innerHTML = '<span><i class="fas fa-spinner fa-spin"></i> Finalizing...</span>';
+    btn.disabled = true;
+
+    const res = await fetch('/teacher/finalize-attendance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `subject_id=${sid}&date=${date}`
+    });
+    
+    const data = await res.json();
+    if (data.success) {
+        window.location.href = '/teacher/mark-attendance';
+    } else {
+        alert(data.error || 'Failed to finalize');
+        btn.innerHTML = '<span><i class="fas fa-check-double"></i> Submit Final & Lock</span>';
+        btn.disabled = false;
+    }
+}
+
+async function toggleStatus(sid) {
+    const pill = document.getElementById('pill-' + sid);
+    const method = document.getElementById('method-' + sid);
+    const dot = document.getElementById('dot-' + sid);
+    
+    const isPresent = pill.classList.contains('PRESENT');
+    const newStatus = isPresent ? 'absent' : 'present';
+    const subId = document.getElementById('subjectFilter').value;
+    const date = document.getElementById('dateFilter').value;
+
+    if(!subId) { alert('Please select a subject first!'); return; }
+
+    try {
+        const res = await fetch('/teacher/api/mark-attendance-manual', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                student_id: sid,
+                subject_id: subId,
+                date: date,
+                status: newStatus
+            })
+        });
+        const data = await res.json();
+        if(data.success) {
+            pill.className = 'status-pill ' + newStatus.toUpperCase();
+            pill.innerText = newStatus.toUpperCase();
+            if(method) method.innerText = 'MANUAL';
+            // Update stats
+            updateStats();
+        }
+    } catch(err) { alert('Failed to update attendance'); }
+}
+
+function updateStats() {
+    const presents = document.querySelectorAll('.status-pill.PRESENT').length;
+    const absents = document.querySelectorAll('.status-pill.ABSENT').length;
+    const presEl = document.getElementById('presCount');
+    const absEl = document.getElementById('absCount');
+    if(presEl) presEl.innerText = presents;
+    if(absEl) absEl.innerText = absents;
+}
+
+function exportData(type) {
+    const sid = document.getElementById('subjectFilter').value;
+    const date = document.getElementById('dateFilter').value;
+    if(!sid) { alert('Please select a subject first!'); return; }
+    window.location.href = `/teacher/records/export?subject_id=${sid}&date=${date}&type=${type}`;
+}
+
+document.getElementById('visionForm').onsubmit = function() {
+    const sid = document.getElementById('subjectFilter').value;
+    if(!sid) { alert('Please select a subject first!'); return false; }
+    
+    document.getElementById('formSubjectId').value = sid;
+    document.getElementById('formDate').value = document.getElementById('dateFilter').value;
+    document.getElementById('formTime').value = document.getElementById('timeFilter').value;
+    
+    const btn = document.getElementById('processBtn');
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analyzing Faces...';
+    btn.disabled = true;
+};
+
+// Handle Drag and Drop
+const dropZone = document.getElementById('dropZone');
+if(dropZone) {
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(evt => {
+        dropZone.addEventListener(evt, e => {
+            e.preventDefault();
+            e.stopPropagation();
+        }, false);
+    });
+    dropZone.addEventListener('drop', e => {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        document.getElementById('classroomPhoto').files = files;
+        handleFileSelect(document.getElementById('classroomPhoto'));
+    });
+}
+
+// Initial stat update
+window.onload = updateStats;
+</script>
+{% endblock %}

@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block title %}Teacher Dashboard — SmartAttend{% endblock %}
+{% block page_title %}My Dashboard{% endblock %}
+{% block topbar_actions %}
+<a href="{{ url_for('teacher.mark_attendance') }}" class="btn bp btn-sm"><i class="fas fa-camera"></i> Mark Attendance</a>
+{% endblock %}
+{% block content %}
+
+<!-- Header -->
+<div class="staff-hero fu" style="margin-bottom:24px;">
+  <div style="font-family:var(--font-heading);font-size:18px;font-weight:800;color:#C1272D;text-transform:uppercase;">GH RAISONI COLLEGE OF ENGINEERING & MANAGEMENT</div>
+  <div style="font-size:16px;color:#001F3F;font-weight:800;">Academic Oversight</div>
+  <div style="font-family:var(--font-body);font-size:12px;color:var(--t2);">Real-time attendance intelligence for the current semester.</div>
+</div>
+
+{% if not is_approved %}
+<div style="background:linear-gradient(135deg,#0F204C,#1C3B78); color:#fff; border-radius:16px; padding:24px 28px; margin-bottom:28px; display:flex; align-items:center; gap:20px;">
+  <div style="width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:20px;">
+    <i class="fas fa-hourglass-half"></i>
+  </div>
+  <div>
+    <div style="font-weight:700;font-size:16px;margin-bottom:4px;">Account Awaiting Admin Approval</div>
+    <div style="font-size:13px;opacity:0.85;">Your registration is under review. The interface is visible but all features will be unlocked once the administrator approves your account. No action is needed from your side.</div>
+  </div>
+</div>
+{% endif %}
+
+{% if not subjects %}
+<div class="card fu fu1" style="margin-bottom:20px;background:rgba(255,217,61,.05);border-color:rgba(255,217,61,.2)">
+  <div style="display:flex;align-items:center;gap:16px">
+    <div style="font-size:36px">⚠️</div>
+    <div>
+      <div style="font-family:var(--fd);font-size:16px;font-weight:700;margin-bottom:4px;color:var(--gold)">No Subjects Assigned Yet</div>
+      <div style="font-size:13.5px;color:var(--t1)">You have not linked a class yet. Contact your admin or request access below.</div>
+    </div>
+    <a href="{{ url_for('teacher.request_access') }}" class="btn bs" style="margin-left:auto;flex-shrink:0">Request Access</a>
+  </div>
+</div>
+{% endif %}
+
+<div class="sg fu fu1">
+  <!-- Cards background color changed as requested -->
+  <div class="sc" style="background:var(--b2);"><div class="sc-glow" style="background:var(--brand)"></div><div class="sc-ico ip"><i class="fas fa-book-open"></i></div><div class="sc-val">{{ subjects|length }}</div><div class="sc-lbl">My Subjects</div></div>
+  <div class="sc" style="background:var(--b2);"><div class="sc-glow" style="background:#2DA84F"></div><div class="sc-ico ig"><i class="fas fa-calendar-check"></i></div><div class="sc-val">{{ today_sessions }}</div><div class="sc-lbl">Today's Sessions</div></div>
+  <div class="sc" style="background:var(--b2);"><div class="sc-glow" style="background:var(--accent)"></div><div class="sc-ico iy"><i class="fas fa-clock"></i></div><div class="sc-val">{{ pending_req }}</div><div class="sc-lbl">Pending Requests</div></div>
+</div>
+
+<!-- Weekly Chart with filters -->
+<div class="card fu fu2" style="margin-bottom:20px">
+  <div class="c-hd">
+    <div>
+      <div class="c-title">Attendance Overview</div>
+      <div class="c-sub">Weekly trend across your subjects</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <!-- Added Dropdown as requested -->
+      <select id="subjectFilter" onchange="updateChartData()" class="fc" style="width:auto; padding:4px 8px; font-size:12px; height:auto; background:var(--glass);">
+        <option value="all">All Subjects</option>
+        {% for s in subjects %}
+        <option value="{{ s.id }}">{{ s.name }} ({{ s.code }})</option>
+        {% endfor %}
+      </select>
+      <button class="btn bs btn-sm" id="btn-weekly" onclick="switchView('weekly')">Weekly</button>
+      <button class="btn bp btn-sm" id="btn-monthly" onclick="switchView('monthly')" style="display:none">Monthly</button>
+      <div style="display:flex;gap:10px;font-size:12px;color:var(--t1);margin-left:10px">
+        <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--brand);margin-right:5px"></span>Present</span>
+        <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--red);margin-right:5px"></span>Absent</span>
+      </div>
+    </div>
+  </div>
+  <canvas id="attendChart" height="50"></canvas>
+</div>
+
+<div class="g2 fu fu3">
+  <div class="card">
+    <div class="c-hd"><div class="c-title">My Subjects</div><a href="{{ url_for('teacher.records') }}" class="btn bs btn-sm">All Records</a></div>
+    <div id="subj-stats-container"><div style="text-align:center;padding:20px;color:var(--t2);font-size:13px">Loading...</div></div>
+    <script>
+    (function(){
+      const stats = {{ subject_stats|safe }};
+      const el = document.getElementById('subj-stats-container');
+      if(!stats.length){el.innerHTML='<div style="text-align:center;padding:20px;color:var(--t2);font-size:13px">No subjects assigned yet.</div>';return;}
+      el.innerHTML = stats.map(s=>{
+        const bc=s.pct>=75?'bag':s.pct>=50?'bay':'bar';
+        const pc=s.pct>=75?'prog-g':s.pct<50?'prog-r':'';
+        return `<div style="padding:12px;border-radius:10px;background:var(--glass);border:1px solid var(--b0);margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <div><div style="font-size:13.5px;font-weight:600;color:var(--t0)">${s.name}</div><div style="font-size:11px;color:var(--t2);font-family:var(--fm)">${s.code||''}</div></div>
+            <span class="badge ${bc}">${s.pct}%</span>
+          </div>
+          <div class="prog"><div class="prog-f ${pc}" style="width:${s.pct}%"></div></div>
+          <div style="font-size:11.5px;color:var(--t2);margin-top:6px">${s.present}/${s.total} lectures</div>
+        </div>`;
+      }).join('');
+    })();
+    </script>
+  </div>
+
+  <div class="card">
+    <div class="c-hd"><div class="c-title">Quick Links</div></div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <a href="{{ url_for('teacher.mark_attendance') }}" style="display:flex;align-items:center;gap:12px;padding:14px;border-radius:10px;background:var(--glass);border:1px solid var(--b0);text-decoration:none;transition:border-color .2s" onmouseover="this.style.borderColor='var(--brand)'" onmouseout="this.style.borderColor='var(--b0)'">
+        <div style="width:36px;height:36px;border-radius:9px;background:rgba(108,99,255,.12);display:flex;align-items:center;justify-content:center;color:var(--brand);font-size:14px"><i class="fas fa-camera"></i></div>
+        <div><div style="font-size:13.5px;font-weight:600;color:var(--t0)">Mark Attendance</div><div style="font-size:12px;color:var(--t1)">Upload classroom photo</div></div>
+        <i class="fas fa-chevron-right" style="margin-left:auto;color:var(--t2);font-size:11px"></i>
+      </a>
+      <a href="{{ url_for('teacher.records') }}" style="display:flex;align-items:center;gap:12px;padding:14px;border-radius:10px;background:var(--glass);border:1px solid var(--b0);text-decoration:none;transition:border-color .2s" onmouseover="this.style.borderColor='var(--green)'" onmouseout="this.style.borderColor='var(--b0)'">
+        <div style="width:36px;height:36px;border-radius:9px;background:rgba(67,233,123,.1);display:flex;align-items:center;justify-content:center;color:var(--green);font-size:14px"><i class="fas fa-download"></i></div>
+        <div><div style="font-size:13.5px;font-weight:600;color:var(--t0)">Export Records</div><div style="font-size:12px;color:var(--t1)">Download as CSV/Excel</div></div>
+        <i class="fas fa-chevron-right" style="margin-left:auto;color:var(--t2);font-size:11px"></i>
+      </a>
+      <a href="{{ url_for('teacher.monthly_report') }}" style="display:flex;align-items:center;gap:12px;padding:14px;border-radius:10px;background:var(--glass);border:1px solid var(--b0);text-decoration:none;transition:border-color .2s" onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='var(--b0)'">
+        <div style="width:36px;height:36px;border-radius:9px;background:rgba(255,217,61,.1);display:flex;align-items:center;justify-content:center;color:var(--gold);font-size:14px"><i class="fas fa-calendar-days"></i></div>
+        <div><div style="font-size:13.5px;font-weight:600;color:var(--t0)">Monthly Report</div><div style="font-size:12px;color:var(--t1)">Heatmap &amp; student summary</div></div>
+        <i class="fas fa-chevron-right" style="margin-left:auto;color:var(--t2);font-size:11px"></i>
+      </a>
+      <a href="{{ url_for('teacher.classes') }}" style="display:flex;align-items:center;gap:12px;padding:14px;border-radius:10px;background:var(--glass);border:1px solid var(--b0);text-decoration:none;transition:border-color .2s" onmouseover="this.style.borderColor='var(--cyan)'" onmouseout="this.style.borderColor='var(--b0)'">
+        <div style="width:36px;height:36px;border-radius:9px;background:rgba(78,205,196,.1);display:flex;align-items:center;justify-content:center;color:var(--cyan);font-size:14px"><i class="fas fa-users"></i></div>
+        <div><div style="font-size:13.5px;font-weight:600;color:var(--t0)">Classes &amp; Lectures</div><div style="font-size:12px;color:var(--t1)">Students &amp; face photos</div></div>
+        <i class="fas fa-chevron-right" style="margin-left:auto;color:var(--t2);font-size:11px"></i>
+      </a>
+    </div>
+  </div>
+</div>
+
+<script>
+const wdAll = {{ weekly|safe }};
+const wdBySub = {{ weekly_by_sub|safe }};
+
+const ctx = document.getElementById('attendChart').getContext('2d');
+const chart = new Chart(ctx, {
+  type:'line',
+  data:{
+    labels:wdAll.map(d=>d.date),
+    datasets:[
+      {label:'Present',data:wdAll.map(d=>d.present),borderColor:'#0F204C',backgroundColor:'rgba(15,32,76,.12)',fill:true,tension:.4,pointBackgroundColor:'#0F204C',pointRadius:4},
+      {label:'Absent',data:wdAll.map(d=>d.absent),borderColor:'#E1251B',backgroundColor:'rgba(225,37,27,.08)',fill:true,tension:.4,pointBackgroundColor:'#E1251B',pointRadius:4}
+    ]
+  },
+  options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{grid:{color:'rgba(91,45,142,.06)'},ticks:{color:'#8A7A9A',font:{size:11}}},y:{grid:{color:'rgba(91,45,142,.06)'},ticks:{color:'#8A7A9A',font:{size:11}},beginAtZero:true}},interaction:{intersect:false,mode:'index'}}
+});
+
+function switchView(v){
+  document.getElementById('btn-weekly').className='btn '+(v==='weekly'?'bp':'bs')+' btn-sm';
+  document.getElementById('btn-monthly').style.display=v==='weekly'?'none':'inline-flex';
+}
+
+function updateChartData() {
+  const subId = document.getElementById('subjectFilter').value;
+  let targetData = wdAll;
+  if (subId !== 'all' && wdBySub[subId]) {
+    targetData = wdBySub[subId];
+  }
+  chart.data.labels = targetData.map(d=>d.date);
+  chart.data.datasets[0].data = targetData.map(d=>d.present);
+  chart.data.datasets[1].data = targetData.map(d=>d.absent);
+  chart.update();
+}
+</script>
+{% endblock %}

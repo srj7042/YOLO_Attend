@@ -1,0 +1,510 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard — SmartAttend{% endblock %}
+
+{% block head %}
+<style>
+/* New Dashboard Styles to match design */
+.dash-hero {
+  margin-bottom: 30px;
+}
+.institute-name {
+  font-family: var(--font-heading, "Manrope", sans-serif);
+  font-size: 28px;
+  font-weight: 800;
+  color: #D31A38;
+  margin-bottom: 4px;
+  letter-spacing: -0.5px;
+  text-transform: uppercase;
+}
+.oversight-title {
+  font-family: var(--font-heading, "Manrope", sans-serif);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--primary);
+  margin-bottom: 8px;
+}
+.oversight-sub {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  margin-bottom: 30px;
+}
+.stat-card {
+  background: rgba(173, 114, 201, 0.722);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+  display: flex;
+  flex-direction: column;
+}
+.stat-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+  font-size: 16px;
+}
+/* Icon Colors */
+.stat-card:nth-child(1) .stat-icon { background: #F0E6FA; color: var(--primary); }
+.stat-card:nth-child(2) .stat-icon { background: #FFF0E6; color: #E1251B; }
+.stat-card:nth-child(3) .stat-icon { background: #E6F0FF; color: #0056B3; }
+.stat-card:nth-child(4) .stat-icon { background: #FFF4E6; color: #E67E22; }
+
+.stat-label {
+  font-size: 26px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.stat-value {
+  font-family: var(--font-heading, "Manrope", sans-serif);
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--text-main);
+  margin-bottom: 8px;
+}
+.stat-sub {
+  font-size: 14px;
+  color: #140029;
+}
+.stat-sub.positive { color: #003810; font-weight: 500; }
+
+.middle-grid {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 24px;
+  margin-bottom: 30px;
+}
+.panel {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+}
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+}
+.panel-title {
+  font-family: var(--font-heading, "Manrope", sans-serif);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--primary);
+  margin-bottom: 4px;
+}
+.panel-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.control-group {
+  display: flex;
+  gap: 8px;
+}
+.select-mini {
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--b0, rgba(91,45,142,.12));
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-main);
+  background: var(--bg0);
+  cursor: pointer;
+  outline: none;
+}
+
+/* Faculty Benchmarks */
+.benchmark-item {
+  margin-bottom: 16px;
+}
+.benchmark-item:last-child {
+  margin-bottom: 0;
+}
+.bm-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 6px;
+}
+.bm-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+.bm-subject {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 2px;
+}
+.bm-score {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--primary);
+}
+.bm-bar-bg {
+  height: 6px;
+  background: var(--bg2);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.bm-bar-fill {
+  height: 100%;
+  background: var(--primary);
+  border-radius: 10px;
+}
+
+/* Bottom Grid */
+.bottom-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 24px;
+}
+
+.approval-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.approval-card {
+  background: var(--bg0);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.approval-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #E6E6E6;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:700;
+  color:var(--t1);
+}
+.approval-info {
+  flex: 1;
+}
+.approval-name {
+  font-size: 13px;
+  font-weight: 600;
+}
+.approval-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.approval-actions {
+  display: flex;
+  gap: 6px;
+}
+.btn-action-small {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+}
+.btn-approve { background: #E8F5E9; color: #2e7d32; }
+.btn-reject { background: #FFEBEE; color: #c62828; }
+
+.quick-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.qa-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 12px;
+  color: white;
+  text-decoration: none;
+  transition: transform 0.2s;
+}
+.qa-btn:hover {
+  transform: translateY(-2px);
+}
+.qa-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+.qa-sub {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+/* Custom Chart Area */
+.chart-area {
+  height: 200px;
+  width: 100%;
+  background: var(--bg0);
+  border-radius: 12px;
+  position:relative;
+  padding: 16px;
+}
+
+/* Hide topbar title since it's customized in page */
+.topbar-title { display: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dash-hero">
+  <div class="institute-name">GH Raisoni College Of Engineering & Management</div>
+  <div class="oversight-title">Academic Oversight</div>
+  <div class="oversight-sub">Real-time attendance intelligence for the current semester.</div>
+</div>
+
+<div class="stat-grid fu fu1">
+  <div class="stat-card">
+    <div class="stat-icon"><i class="fas fa-users"></i></div>
+    <div class="stat-label">Total Students</div>
+    <div class="stat-val">{{ total_students }}</div>
+    <div class="stat-sub">{% if total_students > 0 %}Active enrollments{% else %}No students yet{% endif %}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon"><i class="fas fa-graduation-cap"></i></div>
+    <div class="stat-label">Active Classes</div>
+    <div class="stat-val">{{ total_classes }}</div>
+    <div class="stat-sub">{% if total_classes > 0 %}Currently in progress{% else %}No classes yet{% endif %}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon"><i class="fas fa-chalkboard-teacher"></i></div>
+    <div class="stat-label">Teachers</div>
+    <div class="stat-val">{{ total_teachers }}</div>
+    <div class="stat-sub">{% if total_teachers > 0 %}Approved & active{% else %}Awaiting approvals{% endif %}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon"><i class="fas fa-clipboard-check"></i></div>
+    <div class="stat-label">Today's Records</div>
+    <div class="stat-val">{{ today_records }}</div>
+    <div class="stat-sub">{% if today_records > 0 %}Attendance marked{% else %}No sessions marked today{% endif %}</div>
+  </div>
+</div>
+
+<div class="middle-grid fu fu2">
+  <div class="panel">
+    <div class="panel-header">
+      <div>
+        <div class="panel-title">Attendance Trends</div>
+        <div class="panel-sub">Aggregate student presence across departments</div>
+      </div>
+      <div class="control-group">
+        <select class="select-mini" id="yearSelect">
+          <option value="" disabled selected>Select Year</option>
+          <option value="fy">FY</option>
+          <option value="sy">SY</option>
+          <option value="ty">TY</option>
+        </select>
+        <select class="select-mini" id="timeSelect" onchange="updateChartData()">
+          <option value="weekly">Past Week</option>
+          <option value="monthly">Monthly</option>
+        </select>
+      </div>
+    </div>
+    <div class="chart-area">
+      <canvas id="trendChart"></canvas>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header" style="margin-bottom: 20px; align-items: center;">
+      <div class="panel-title" style="margin-bottom:0;">Faculty Benchmarks</div>
+      <input type="date" class="select-mini" value="{{ today }}" style="border-radius: 8px; border:1px solid var(--b0); padding: 4px 8px; width: 110px; font-family: var(--font-body);">
+    </div>
+    <div class="panel-sub" style="margin-top:-16px; margin-bottom:20px;">Daily attendance ratio by staff</div>
+    
+    <div>
+      {% if faculty_stats and faculty_stats|length > 0 %}
+        {% for fp in faculty_stats %}
+        <div class="benchmark-item">
+          <div class="bm-header">
+            <div>
+              <div class="bm-name">{{ fp.name }}</div>
+              <div class="bm-subject">{{ fp.subject }}</div>
+            </div>
+            <div class="bm-score" {% if fp.score < 80 %}style="color:#E67E22"{% endif %}>{{ fp.score }}%</div>
+          </div>
+          <div class="bm-bar-bg">
+            <div class="bm-bar-fill" style="width: {{ fp.score }}%; {% if fp.score < 80 %}background:#E67E22{% endif %}"></div>
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div style="text-align:center; padding: 32px 0; color: var(--t2); font-size: 13px;">
+          <i class="fas fa-users" style="font-size:24px; display:block; margin-bottom:8px; opacity:0.3;"></i>
+          Benchmarks will appear once teachers are active.
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="bottom-grid fu fu3">
+  <div class="panel" style="background:transparent; padding:0; box-shadow:none;">
+    <div class="panel-header" style="margin-bottom: 16px;">
+      <div class="panel-title">Pending Approvals</div>
+      <a href="{{ url_for('admin.approvals') }}" style="font-size:11px; font-weight:700; color:var(--accent); text-transform:uppercase; text-decoration:none;">View All Requests</a>
+    </div>
+    
+    <div class="approval-grid">
+      {% if recent_approvals and recent_approvals|length > 0 %}
+        {% for req in recent_approvals %}
+        <div class="approval-card">
+          <div class="approval-avatar">{{ req.teacher.name[0] }}</div>
+          <div class="approval-info">
+            <div class="approval-name">{{ req.teacher.name }}</div>
+            <div class="approval-desc">{{ req.subject.name }} · {{ req.class_ref.full_name }}</div>
+          </div>
+          <div class="approval-actions">
+            <a href="{{ url_for('admin.approvals') }}" class="btn-action-small btn-approve" title="Review in Approvals"><i class="fas fa-arrow-right"></i></a>
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div style="font-size: 13px; color: var(--t2); text-align:center; padding: 24px; grid-column: 1/-1;">
+          <i class="fas fa-check-circle" style="color:#2DA84F; font-size:24px; display:block; margin-bottom:8px;"></i>
+          No pending approvals. All clear!
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="panel" style="background:transparent; padding:0; box-shadow:none;">
+    <div class="panel-title" style="margin-bottom: 16px;">Quick Actions</div>
+    <div class="quick-actions">
+      <a href="{{ url_for('admin.classes') }}" class="qa-btn" style="background: #0F204C; color: #fff;">
+        <div style="font-size:20px; width:30px; text-align:center;"><i class="fas fa-calendar-plus"></i></div>
+        <div>
+          <div class="qa-title">Add New Class</div>
+          <div class="qa-sub">Configure timetable slots</div>
+        </div>
+      </a>
+      <a href="{{ url_for('admin.student_registration') }}" class="qa-btn" style="background: #F4F0F8; color: #1A1025;">
+        <div style="font-size:20px; width:30px; text-align:center; color:#5B2D8E;"><i class="fas fa-user-plus"></i></div>
+        <div>
+          <div class="qa-title" style="color:#1A1025;">Manage Students</div>
+          <div class="qa-sub" style="color:#4A3D5C;">Update enrollment data</div>
+        </div>
+      </a>
+      <a href="{{ url_for('admin.analytics') }}" class="qa-btn" style="background: #E1251B; color: #fff;">
+        <div style="font-size:20px; width:30px; text-align:center;"><i class="fas fa-chart-bar"></i></div>
+        <div>
+          <div class="qa-title">View Analytics</div>
+          <div class="qa-sub">Deep dive into AI trends</div>
+        </div>
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const weeklyRaw = {{ weekly|safe }};
+const monthlyRaw = {{ monthly|safe }};
+
+const wLabels = weeklyRaw.map(d => d.date);
+const mLabels = monthlyRaw.map(d => d.month);
+
+const wPresent = weeklyRaw.map(d => d.present);
+const wAbsent  = weeklyRaw.map(d => d.absent);
+const mAvg     = monthlyRaw.map(d => d.avg);
+
+let trendChart;
+
+function initChart() {
+  const ctx = document.getElementById('trendChart').getContext('2d');
+  trendChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: wLabels,
+      datasets: [
+        {
+          label: 'Present',
+          data: wPresent,
+          backgroundColor: '#0F204C',
+          borderRadius: 4,
+          barPercentage: 0.6,
+          categoryPercentage: 0.7
+        },
+        {
+          label: 'Absent',
+          data: wAbsent,
+          backgroundColor: '#E1251B',
+          borderRadius: 4,
+          barPercentage: 0.6,
+          categoryPercentage: 0.7
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: true,
+          position: 'top',
+          labels: {
+            font: { size: 11, weight: 600 },
+            color: '#4A3D5C',
+            usePointStyle: true,
+            boxWidth: 8
+          }
+        },
+        tooltip: { mode: 'index', intersect: false }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { color: '#8A7A9A', font: { size: 10, weight: 600 } }
+        },
+        y: {
+          grid: { color: 'rgba(15,32,76,0.05)' },
+          ticks: { color: '#8A7A9A', font: { size: 10 }, stepSize: 5 },
+          beginAtZero: true
+        }
+      }
+    }
+  });
+}
+
+function updateChartData() {
+  const selector = document.getElementById('timeSelect').value;
+  if(selector === 'monthly') {
+    trendChart.data.labels = mLabels;
+    trendChart.data.datasets[0].data = mAvg;
+    trendChart.data.datasets[0].label = 'Avg Attendance %';
+    trendChart.data.datasets[1].data = [];
+  } else {
+    trendChart.data.labels = wLabels;
+    trendChart.data.datasets[0].data = wPresent;
+    trendChart.data.datasets[0].label = 'Present';
+    trendChart.data.datasets[1].data = wAbsent;
+    trendChart.data.datasets[1].label = 'Absent';
+  }
+  trendChart.update();
+}
+
+window.addEventListener('load', initChart);
+</script>
+{% endblock %}
