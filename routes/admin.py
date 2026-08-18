@@ -694,3 +694,33 @@ def export_division_students(class_id, subject_id):
         as_attachment=True,
         download_name=f'{cls.section}_{subject.name}_students.csv'
     )
+
+@admin_bp.route('/permissions')
+@login_required
+@admin_required
+def permissions():
+    from utils.auth_utils import DEFAULT_ROLE_PERMISSIONS
+    from models import Permission
+    
+    # Generate list of permissions
+    all_codes = sorted(list(DEFAULT_ROLE_PERMISSIONS['admin']))
+    permissions_list = [{'code': code, 'name': code.replace('_', ' ').title()} for code in all_codes]
+
+    return render_template(
+        'admin/permissions.html',
+        permissions_list=permissions_list,
+        admin_perms=DEFAULT_ROLE_PERMISSIONS['admin'],
+        director_perms=DEFAULT_ROLE_PERMISSIONS['director'],
+        hod_perms=DEFAULT_ROLE_PERMISSIONS['hod'],
+        teacher_perms=DEFAULT_ROLE_PERMISSIONS['teacher'],
+        student_perms=DEFAULT_ROLE_PERMISSIONS['student']
+    )
+
+@admin_bp.route('/audit-logs')
+@login_required
+@admin_required
+def audit_logs():
+    from models import AuditLog
+    logs = AuditLog.query.order_by(AuditLog.timestamp.desc()).limit(100).all()
+    return render_template('admin/audit_logs.html', logs=logs)
+

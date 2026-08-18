@@ -9,7 +9,7 @@ class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
-    role = db.Column(db.String(20), nullable=False)  # 'admin' or 'teacher'
+    role = db.Column(db.String(20), nullable=False)  # 'admin', 'director', 'hod', 'teacher', 'student'
     name = db.Column(db.String(120), nullable=False)
     email = db.Column(db.String(120), unique=True)
     department = db.Column(db.String(100))
@@ -21,6 +21,7 @@ class User(UserMixin, db.Model):
     student_id = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=True)
     student_profile = db.relationship('Student', backref='user_account', foreign_keys=[student_id])
     approval_requests = db.relationship('ApprovalRequest', backref='teacher', lazy=True, cascade="all, delete-orphan", foreign_keys='ApprovalRequest.teacher_id')
+    custom_permissions = db.relationship('UserPermission', backref='user', lazy=True, cascade="all, delete-orphan")
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -31,6 +32,53 @@ class User(UserMixin, db.Model):
     def get_initials(self):
         parts = self.name.split()
         return ''.join(p[0].upper() for p in parts[:2])
+
+
+class Role(db.Model):
+    __tablename__ = 'roles'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False)  # 'admin', 'director', 'hod', 'teacher', 'student'
+    description = db.Column(db.String(255))
+    role_permissions = db.relationship('RolePermission', backref='role', lazy=True, cascade="all, delete-orphan")
+
+
+class Permission(db.Model):
+    __tablename__ = 'permissions'
+    id = db.Column(db.Integer, primary_key=True)
+    code = db.Column(db.String(100), unique=True, nullable=False)  # e.g. 'view_dashboard'
+    name = db.Column(db.String(120), nullable=False)
+    description = db.Column(db.String(255))
+
+
+class RolePermission(db.Model):
+    __tablename__ = 'role_permissions'
+    id = db.Column(db.Integer, primary_key=True)
+    role_id = db.Column(db.Integer, db.ForeignKey('roles.id'), nullable=False)
+    permission_id = db.Column(db.Integer, db.ForeignKey('permissions.id'), nullable=False)
+    permission = db.relationship('Permission', backref=db.backref('role_permissions', cascade="all, delete-orphan"))
+
+
+class UserPermission(db.Model):
+    __tablename__ = 'user_permissions'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    permission_id = db.Column(db.Integer, db.ForeignKey('permissions.id'), nullable=False)
+    is_granted = db.Column(db.Boolean, default=True)
+    permission = db.relationship('Permission')
+
+
+class AuditLog(db.Model):
+    __tablename__ = 'audit_logs'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    username = db.Column(db.String(80))
+    action = db.Column(db.String(100), nullable=False)
+    ip_address = db.Column(db.String(45))
+    description = db.Column(db.Text)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship('User', foreign_keys=[user_id])
+
 
 
 class Department(db.Model):

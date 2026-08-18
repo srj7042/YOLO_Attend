@@ -1,18 +1,30 @@
 {% extends "base.html" %}
-{% block title %}Login — SmartAttend{% endblock %}
+{% block title %}Sign In — SmartAttend{% endblock %}
 {% block content %}
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@500;600;700;800&display=swap');
 
 :root {
-  --primary: var(--brand);
-  --primary-dark: #4A2275;
-  --bg-light: #FFFFFF;
-  --text-main: #1A1025;
-  --text-muted: #4A3D5C;
-  --input-bg: #F8F5FB;
+  --primary: #0F204C;
+  --primary-dark: #08112C;
+  --accent: #E1251B;
+  --bg-light: #F4F6F9;
+  --text-main: #111827;
+  --text-muted: #6B7280;
+  --input-bg: #FFFFFF;
+  --card-bg: #FFFFFF;
+  --border-color: #E5E7EB;
   --font-heading: 'Manrope', sans-serif;
   --font-body: 'Inter', sans-serif;
+}
+
+[data-theme='dark'] {
+  --bg-light: #0B1120;
+  --card-bg: #111827;
+  --text-main: #F9FAFB;
+  --text-muted: #9CA3AF;
+  --input-bg: #1F2937;
+  --border-color: #374151;
 }
 
 body {
@@ -23,524 +35,328 @@ body {
   color: var(--text-main);
 }
 
-.login-wrap {
-  min-height: 100vh;
-  display: flex;
-  align-items: stretch;
-}
-
-/* Left Side - Hero/Purple */
-.login-left {
-  flex: 1;
-  max-width: 480px;
-  display: flex;
-  flex-direction: column;
-  padding: 60px 40px;
-  background-color: var(--primary);
-  color: #fff;
-  position: relative;
-  overflow: hidden;
-}
-
-.brand-wrap {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 40px;
-}
-
-.brand-mark {
-  width: 32px;
-  height: 32px;
-  background: #FFA000;
-  border-radius: 6px;
+.login-container {
+  min-height: 85vh;
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.brand-name {
-  font-family: var(--font-heading);
-  font-size: 20px;
-  font-weight: 800;
-  letter-spacing: -0.5px;
-  color: #fff;
-}
-
-.hero-title {
-  font-family: var(--font-heading);
-  font-size: 44px;
-  font-weight: 800;
-  line-height: 1.2;
-  margin-bottom: 24px;
-  color: #fff;
-}
-
-.hero-subtitle {
-  font-size: 15px;
-  color: rgba(255,255,255,0.7);
-  line-height: 1.6;
-  margin-bottom: 48px;
-  font-weight: 400;
-}
-
-.features {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.feat {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 16px;
-  border-radius: 12px;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.1);
-}
-
-.feat-ico {
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  font-size: 18px;
-}
-
-.feat-text {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.feat-title {
-  font-size: 15px;
-  font-weight: 700;
-  font-family: var(--font-heading);
-  color: #fff;
-}
-
-.feat-desc {
-  font-size: 13px;
-  color: rgba(255,255,255,0.6);
-  line-height: 1.4;
-}
-
-.footer-text {
-  margin-top: auto;
-  font-size: 11px;
-  color: rgba(255,255,255,0.4);
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-  font-weight: 600;
-}
-
-/* Right Side - Form */
-.login-right {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  background: var(--bg-light);
-  padding: 40px;
-}
-
-.form-container {
-  width: 100%;
-  max-width: 420px;
-}
-
-.login-title {
-  font-family: var(--font-heading);
-  font-size: 32px;
-  font-weight: 800;
-  margin-bottom: 8px;
-  color: var(--text-main);
-}
-
-.login-sub {
-  font-size: 14px;
-  color: var(--text-muted);
-  margin-bottom: 32px;
-}
-
-.role-tabs {
-  display: flex;
-  background: #F4F0F8;
-  padding: 6px;
-  border-radius: 12px;
-  margin-bottom: 32px;
-}
-
-.role-tab {
-  flex: 1;
-  padding: 12px;
-  border-radius: 8px;
-  text-align: center;
-  font-size: 14px;
-  font-weight: 600;
-  font-family: var(--font-heading);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  color: var(--text-muted);
-  border: none;
-  background: transparent;
-}
-
-.role-tab.active {
-  background: #fff;
-  color: var(--primary);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-}
-
-.input-group {
-  margin-bottom: 20px;
-}
-
-.input-label {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--text-muted);
-  margin-bottom: 8px;
-  font-family: var(--font-heading);
-}
-
-.input-label a {
-  color: var(--primary);
-  text-decoration: none;
-  text-transform: none;
-  font-weight: 500;
-  font-size: 12px;
-  letter-spacing: 0;
-}
-
-.input-label a:hover {
-  text-decoration: underline;
-}
-
-.input-wrap {
-  position: relative;
-}
-
-.input-ico {
-  position: absolute;
-  left: 16px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #A39BAE;
-  font-size: 14px;
-  pointer-events: none;
-}
-
-.fc {
-  width: 100%;
-  padding: 14px 16px 14px 44px;
-  background: var(--input-bg);
-  border: 1px solid transparent;
-  border-radius: 10px;
-  font-size: 14px;
-  color: var(--text-main);
-  transition: all 0.2s;
-  box-sizing: border-box;
-  font-family: var(--font-body);
-}
-
-.fc::placeholder {
-  color: #A39BAE;
-}
-
-.fc:focus {
-  outline: none;
-  border-color: rgba(91,45,142,0.3);
-  background: #fff;
-  box-shadow: 0 0 0 4px rgba(91,45,142,0.08);
-}
-
-.checkbox-wrap {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 32px;
-  cursor: pointer;
-}
-
-.checkbox-wrap input {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--primary);
-  cursor: pointer;
-  border-radius: 4px;
-}
-
-.checkbox-wrap span {
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-.btn-submit {
-  width: 100%;
-  padding: 16px;
-  background: var(--primary);
-  color: #fff;
-  border: none;
-  border-radius: 10px;
-  font-size: 15px;
-  font-weight: 600;
-  font-family: var(--font-heading);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  transition: all 0.2s;
-  box-shadow: 0 4px 12px rgba(91,45,142,0.25);
-}
-
-.btn-submit:hover {
-  background: var(--primary-dark);
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(91,45,142,0.35);
-}
-
-.signup-link {
-  text-align: center;
-  margin-top: 24px;
-  font-size: 14px;
-  color: var(--text-muted);
-}
-
-.signup-link a {
-  color: var(--primary);
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.signup-link a:hover {
-  text-decoration: underline;
-}
-
-.demo-credentials {
-  margin-top: 40px;
-  background: #F8F5FB;
-  border-radius: 12px;
   padding: 20px;
 }
 
-.demo-title {
+.login-card {
+  width: 100%;
+  max-width: 440px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 24px;
+  padding: 40px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.08);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.login-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.brand-icon {
+  width: 44px;
+  height: 44px;
+  background: var(--primary);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 16px rgba(15, 32, 76, 0.25);
+}
+
+.brand-icon svg {
+  width: 24px;
+  height: 24px;
+  stroke: #FFFFFF;
+}
+
+.brand-title {
+  font-family: var(--font-heading);
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--primary);
+  letter-spacing: -0.5px;
+}
+
+[data-theme='dark'] .brand-title {
+  color: #FFFFFF;
+}
+
+.login-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.login-header h1 {
+  font-family: var(--font-heading);
+  font-size: 26px;
+  font-weight: 800;
+  margin-bottom: 8px;
+  color: var(--text-main);
+}
+
+.login-header p {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-wrapper i.input-icon {
+  position: absolute;
+  left: 16px;
+  color: var(--text-muted);
+  font-size: 15px;
+}
+
+.form-input {
+  width: 100%;
+  padding: 14px 16px 14px 44px;
+  background: var(--input-bg);
+  border: 1.5px solid var(--border-color);
+  border-radius: 12px;
+  font-size: 14px;
+  font-family: var(--font-body);
+  color: var(--text-main);
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.form-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(15, 32, 76, 0.1);
+}
+
+.password-toggle {
+  position: absolute;
+  right: 16px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 15px;
+  padding: 0;
+}
+
+.form-options {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 28px;
+  font-size: 13px;
+}
+
+.remember-me {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 16px;
-  font-family: var(--font-heading);
-}
-
-.demo-flex {
-  display: flex;
-  gap: 20px;
-}
-
-.demo-col {
-  flex: 1;
-}
-
-.demo-col-label {
-  font-size: 10px;
-  color: var(--t2);
-  text-transform: uppercase;
-  margin-bottom: 6px;
-}
-
-.demo-badge {
-  display: inline-block;
-  padding: 6px 10px;
-  background: #F0E6FA;
-  color: var(--primary);
-  border-radius: 6px;
-  font-family: monospace;
-  font-size: 12px;
   cursor: pointer;
-  transition: all 0.2s;
+  color: var(--text-muted);
+  user-select: none;
 }
 
-.demo-badge.admin {
-  background: var(--bg1)0E6;
-  color: var(--accent);
+.remember-me input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary);
+  cursor: pointer;
 }
 
-.demo-badge:hover {
-  filter: brightness(0.95);
+.forgot-link {
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.2s;
 }
 
-.form-footer {
-  margin-top: 60px;
-  display: flex;
-  justify-content: center;
-  gap: 24px;
+[data-theme='dark'] .forgot-link {
+  color: #60A5FA;
 }
 
-.form-footer a {
+.forgot-link:hover {
+  text-decoration: underline;
+}
+
+.btn-login {
+  width: 100%;
+  padding: 14px;
+  background: var(--primary);
+  color: #FFFFFF;
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: var(--font-heading);
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+  box-shadow: 0 8px 20px rgba(15, 32, 76, 0.2);
+}
+
+.btn-login:hover {
+  background: #1C3B78;
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgba(15, 32, 76, 0.3);
+}
+
+.btn-login:active {
+  transform: translateY(0);
+}
+
+.login-footer {
+  margin-top: 32px;
+  text-align: center;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-color);
   font-size: 12px;
-  color: var(--t2);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.login-footer i {
+  color: #10B981;
+}
+
+.register-prompt {
+  margin-top: 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.register-prompt a {
+  color: var(--primary);
+  font-weight: 600;
   text-decoration: none;
 }
 
-.form-footer a:hover {
-  color: var(--text-muted);
+[data-theme='dark'] .register-prompt a {
+  color: #60A5FA;
 }
 
-@media (max-width: 900px) {
-  .login-left {
-    display: none;
-  }
+.register-prompt a:hover {
+  text-decoration: underline;
 }
 </style>
 
-<div class="login-wrap">
-  <div class="login-left">
-    <div class="brand-wrap">
-      <div class="brand-mark">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#222" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="9" x2="9" y2="15"></line><line x1="15" y1="9" x2="15" y2="15"></line></svg>
+<div class="login-container">
+  <div class="login-card">
+    <div class="login-brand">
+      <div class="brand-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
+          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+        </svg>
       </div>
-      <div class="brand-name">SmartAttend</div>
+      <div class="brand-title">SMARTATTEND</div>
     </div>
-    
-    <div class="hero-title">AI-powered<br>classroom<br>attendance<br>system</div>
-    <div class="hero-subtitle">Redefining educational administration through<br>digital precision and high-tech efficiency.</div>
-    
-    <div class="features">
-      <div class="feat">
-        <div class="feat-ico" style="background:#C87A5B; color:#fff"><i class="fas fa-user-astronaut"></i></div>
-        <div class="feat-text">
-          <div class="feat-title">YOLOv8 Face Detection</div>
-          <div class="feat-desc">Real-time identification with 99.8% precision.</div>
-        </div>
-      </div>
-      <div class="feat">
-        <div class="feat-ico" style="background:#D88B39; color:#fff"><i class="fas fa-hand-pointer"></i></div>
-        <div class="feat-text">
-          <div class="feat-title">One-Click Attendance</div>
-          <div class="feat-desc">Seamless processing for entire classrooms.</div>
-        </div>
-      </div>
-      <div class="feat">
-        <div class="feat-ico" style="background:#CE915F; color:#fff"><i class="fas fa-user-shield"></i></div>
-        <div class="feat-text">
-          <div class="feat-title">Role-Based Access</div>
-          <div class="feat-desc">Secure permissions for Teachers & Admins.</div>
-        </div>
-      </div>
+
+    <div class="login-header">
+      <h1>Welcome back 👋</h1>
+      <p>Sign in to continue to your account</p>
     </div>
-    
-    <div class="footer-text">
-      &copy; <script>document.write(new Date().getFullYear())</script> SMARTATTEND AI. PRECISION IN EDUCATION.
+
+    <form method="POST" action="{{ url_for('auth.login') }}" id="loginForm">
+      <div class="form-group">
+        <label class="form-label" for="identifier">ID / Username</label>
+        <div class="input-wrapper">
+          <i class="fas fa-user input-icon"></i>
+          <input 
+            type="text" 
+            id="identifier" 
+            name="identifier" 
+            class="form-input" 
+            placeholder="Enter your ID or username" 
+            required 
+            autofocus 
+            autocomplete="username"
+          >
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="password">Password</label>
+        <div class="input-wrapper">
+          <i class="fas fa-lock input-icon"></i>
+          <input 
+            type="password" 
+            id="password" 
+            name="password" 
+            class="form-input" 
+            placeholder="••••••••••••" 
+            required 
+            autocomplete="current-password"
+          >
+          <button type="button" class="password-toggle" onclick="togglePasswordVisibility()" aria-label="Toggle password visibility">
+            <i class="fas fa-eye" id="eyeIcon"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="form-options">
+        <label class="remember-me">
+          <input type="checkbox" name="remember" value="on">
+          <span>Remember me</span>
+        </label>
+        <a href="{{ url_for('auth.forgot_password') }}" class="forgot-link">Forgot password?</a>
+      </div>
+
+      <button type="submit" class="btn-login">
+        SIGN IN
+      </button>
+    </form>
+
+    <div class="register-prompt">
+      New Faculty? <a href="{{ url_for('auth.register') }}">Register for account</a>
     </div>
-  </div>
 
-  <div class="login-right">
-    <div class="form-container">
-      <div class="login-title">Welcome back 👋</div>
-      <div class="login-sub">Please enter your credentials to continue.</div>
-
-      <div class="role-tabs">
-        <button type="button" class="role-tab active" id="tab-student" onclick="setRole('student')">Student</button>
-        <button type="button" class="role-tab" id="tab-teacher" onclick="setRole('teacher')">Teacher</button>
-        <button type="button" class="role-tab" id="tab-admin" onclick="setRole('admin')">Admin</button>
-      </div>
-
-      {% with messages = get_flashed_messages(with_categories=true) %}
-      {% for cat, msg in messages %}
-      <div class="al al-err" style="margin-bottom:20px; background:#FEECEB; color:#E74C3C; padding:12px; border-radius:8px; font-size:13px;"><i class="fas fa-circle-xmark" style="margin-right:6px"></i>{{ msg }}</div>
-      {% endfor %}{% endwith %}
-
-      <form method="POST" action="">
-        <input type="hidden" name="role" id="role-field" value="student">
-        
-        <div class="input-group">
-          <div class="input-label" id="username-label">Roll Number / Student ID</div>
-          <div class="input-wrap">
-            <i class="input-ico fas fa-user" id="username-ico"></i>
-            <input type="text" name="username" id="username-input" class="fc" placeholder="e.g. STU101 or Roll No" required>
-          </div>
-        </div>
-        
-        <div class="input-group">
-          <div class="input-label">
-            Password
-          </div>
-          <div class="input-wrap">
-            <i class="input-ico fas fa-lock"></i>
-            <input type="password" name="password" class="fc" placeholder="••••••••" required>
-          </div>
-        </div>
-        
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; font-size: 13px;">
-          <label class="checkbox-wrap" style="margin-bottom: 0;">
-            <input type="checkbox" name="remember">
-            <span>Stay signed in</span>
-          </label>
-          <a href="{{ url_for('auth.forgot_password') }}" style="color: var(--primary); font-weight: 600; text-decoration: none;">Forgot Password?</a>
-        </div>
-        
-        <button type="submit" class="btn-submit">
-          Sign In <i class="fas fa-arrow-right" style="margin-left:4px"></i>
-        </button>
-      </form>
-
-      <div class="signup-link" id="signup-section" style="margin-top:24px; text-align:center; font-size:14px; display:none;">
-        Don't have an account? <a href="{{ url_for('auth.register') }}" style="color:var(--primary); font-weight:700; text-decoration:none;">Sign Up as Teacher</a>
-      </div>
-
-      <div class="form-footer">
-        <span style="font-size:12px; color:var(--t2);">SmartAttend &mdash; AI Education Platform</span>
-      </div>
+    <div class="login-footer">
+      <i class="fas fa-shield-halved"></i>
+      <span>Secure Role-Based Access</span>
     </div>
   </div>
 </div>
 
 <script>
-function setRole(r){
-  document.getElementById('role-field').value = r;
-  document.getElementById('tab-student').classList.toggle('active', r === 'student');
-  document.getElementById('tab-teacher').classList.toggle('active', r === 'teacher');
-  document.getElementById('tab-admin').classList.toggle('active', r === 'admin');
-
-  const lbl = document.getElementById('username-label');
-  const inp = document.getElementById('username-input');
-  const signupSec = document.getElementById('signup-section');
-
-  if (r === 'student') {
-    lbl.innerText = 'Roll Number / Student ID';
-    inp.placeholder = 'e.g. STU101 or Roll No';
-    signupSec.style.display = 'none';
-  } else if (r === 'teacher') {
-    lbl.innerText = 'Username';
-    inp.placeholder = 'e.g. j.smith';
-    signupSec.style.display = 'block';
+function togglePasswordVisibility() {
+  const pwdInput = document.getElementById('password');
+  const eyeIcon = document.getElementById('eyeIcon');
+  if (pwdInput.type === 'password') {
+    pwdInput.type = 'text';
+    eyeIcon.className = 'fas fa-eye-slash';
   } else {
-    lbl.innerText = 'Admin Username';
-    inp.placeholder = 'e.g. admin';
-    signupSec.style.display = 'none';
+    pwdInput.type = 'password';
+    eyeIcon.className = 'fas fa-eye';
   }
 }
-
-// Initial state based on current field
-document.addEventListener("DOMContentLoaded", function() {
-    setRole(document.getElementById('role-field').value || 'student');
-});
 </script>
 {% endblock %}

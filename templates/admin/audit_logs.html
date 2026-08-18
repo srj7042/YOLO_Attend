@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Security Audit Logs — SmartAttend Admin{% endblock %}
+{% block content %}
+<div class="fu fu1" style="margin-bottom: 24px;">
+  <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+    <div>
+      <h1 style="font-family: var(--fd); font-size: 28px; font-weight: 800; color: var(--t0); margin-bottom: 4px;">
+        Security Audit Logs
+      </h1>
+      <p style="font-size: 14px; color: var(--t2);">
+        <i class="fas fa-list-check" style="color: var(--brand);"></i> System authentication and access event monitoring
+      </p>
+    </div>
+  </div>
+</div>
+
+<div class="card fu fu2">
+  <div class="c-hd">
+    <div>
+      <div class="c-title"><i class="fas fa-history" style="color: var(--brand); margin-right: 6px;"></i> Event Trail</div>
+      <div class="c-sub">Recent security, authentication, and permission events</div>
+    </div>
+  </div>
+
+  <div style="overflow-x: auto;">
+    <table>
+      <thead>
+        <tr>
+          <th>Timestamp (UTC)</th>
+          <th>Action</th>
+          <th>Username</th>
+          <th>IP Address</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in logs %}
+        <tr>
+          <td style="font-family: var(--fm); font-size: 12px; color: var(--t2);">
+            {{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}
+          </td>
+          <td>
+            {% if 'success' in log.action %}
+            <span class="badge bag"><i class="fas fa-check"></i> {{ log.action }}</span>
+            {% elif 'failed' in log.action %}
+            <span class="badge bar"><i class="fas fa-xmark"></i> {{ log.action }}</span>
+            {% else %}
+            <span class="badge bap"><i class="fas fa-info"></i> {{ log.action }}</span>
+            {% endif %}
+          </td>
+          <td style="font-weight: 600;">{{ log.username or 'Anonymous' }}</td>
+          <td><code>{{ log.ip_address or '127.0.0.1' }}</code></td>
+          <td style="font-size: 12.5px; color: var(--t1);">{{ log.description or '-' }}</td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="5" style="text-align: center; color: var(--t2); padding: 24px;">No audit logs recorded yet.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -195,10 +195,27 @@ tr:last-child td{border-bottom:none}tr:hover td{background:rgba(91,45,142,.04);c
       <i class="fas fa-certificate"></i> <span>Staff Approvals</span>
       {%- set pc = pending_approvals_count|default(0) %}{% if pc > 0 %}<span class="n-badge">{{pc}}</span>{% endif %}
     </a>
+    <a href="{{ url_for('admin.permissions') }}" class="nav-item {% if request.endpoint == 'admin.permissions' %}active{% endif %}"><i class="fas fa-shield-halved"></i> <span>Permissions</span></a>
+    <a href="{{ url_for('admin.audit_logs') }}" class="nav-item {% if request.endpoint == 'admin.audit_logs' %}active{% endif %}"><i class="fas fa-list-check"></i> <span>Audit Logs</span></a>
     <a href="{{ url_for('admin.settings') }}" class="nav-item {% if request.endpoint == 'admin.settings' %}active{% endif %}"><i class="fas fa-cog"></i> <span>Settings</span></a>
     
     <div style="margin-top:auto; padding-top:40px;">
-        <a href="#" class="nav-item"><i class="fas fa-question-circle"></i> <span>Support</span></a>
+        <a href="{{ url_for('auth.logout') }}" class="nav-item"><i class="fas fa-arrow-right-from-bracket"></i> <span>Log Out</span></a>
+    </div>
+
+    {% elif current_user.role == 'director' %}
+    <a href="{{ url_for('director.dashboard') }}" class="nav-item {% if request.endpoint == 'director.dashboard' %}active{% endif %}"><i class="fas fa-border-all"></i> <span>Dashboard</span></a>
+    <a href="{{ url_for('admin.analytics') }}" class="nav-item {% if request.endpoint == 'admin.analytics' %}active{% endif %}"><i class="fas fa-chart-line"></i> <span>Analytics</span></a>
+    
+    <div style="margin-top:auto; padding-top:40px;">
+        <a href="{{ url_for('auth.logout') }}" class="nav-item"><i class="fas fa-arrow-right-from-bracket"></i> <span>Log Out</span></a>
+    </div>
+
+    {% elif current_user.role == 'hod' %}
+    <a href="{{ url_for('hod.dashboard') }}" class="nav-item {% if request.endpoint == 'hod.dashboard' %}active{% endif %}"><i class="fas fa-border-all"></i> <span>Dept Dashboard</span></a>
+    <a href="{{ url_for('teacher.records') }}" class="nav-item {% if request.endpoint == 'teacher.records' %}active{% endif %}"><i class="fas fa-list-check"></i> <span>Attendance Records</span></a>
+    
+    <div style="margin-top:auto; padding-top:40px;">
         <a href="{{ url_for('auth.logout') }}" class="nav-item"><i class="fas fa-arrow-right-from-bracket"></i> <span>Log Out</span></a>
     </div>
 

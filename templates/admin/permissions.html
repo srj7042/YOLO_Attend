@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Role Permissions — SmartAttend Admin{% endblock %}
+{% block content %}
+<div class="fu fu1" style="margin-bottom: 24px;">
+  <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+    <div>
+      <h1 style="font-family: var(--fd); font-size: 28px; font-weight: 800; color: var(--t0); margin-bottom: 4px;">
+        Role & Access Permissions Management
+      </h1>
+      <p style="font-size: 14px; color: var(--t2);">
+        <i class="fas fa-shield-halved" style="color: var(--brand);"></i> System RBAC privilege architecture and access rules
+      </p>
+    </div>
+  </div>
+</div>
+
+<div class="card fu fu2">
+  <div class="c-hd">
+    <div>
+      <div class="c-title"><i class="fas fa-lock" style="color: var(--brand); margin-right: 6px;"></i> Role Access Privilege Matrix</div>
+      <div class="c-sub">Default permissions assigned to system roles</div>
+    </div>
+  </div>
+
+  <div style="overflow-x: auto;">
+    <table>
+      <thead>
+        <tr>
+          <th>Permission Code</th>
+          <th>Description</th>
+          <th style="text-align: center;">Admin</th>
+          <th style="text-align: center;">Director</th>
+          <th style="text-align: center;">HOD</th>
+          <th style="text-align: center;">Teacher</th>
+          <th style="text-align: center;">Student</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for perm in permissions_list %}
+        <tr>
+          <td><code>{{ perm.code }}</code></td>
+          <td style="font-weight: 500; color: var(--t0);">{{ perm.name }}</td>
+          <td style="text-align: center;"><i class="fas fa-check-circle" style="color: var(--green);"></i></td>
+          <td style="text-align: center;">
+            {% if perm.code in director_perms %}<i class="fas fa-check-circle" style="color: var(--green);"></i>{% else %}<i class="fas fa-minus" style="color: var(--t2); opacity:0.4;"></i>{% endif %}
+          </td>
+          <td style="text-align: center;">
+            {% if perm.code in hod_perms %}<i class="fas fa-check-circle" style="color: var(--green);"></i>{% else %}<i class="fas fa-minus" style="color: var(--t2); opacity:0.4;"></i>{% endif %}
+          </td>
+          <td style="text-align: center;">
+            {% if perm.code in teacher_perms %}<i class="fas fa-check-circle" style="color: var(--green);"></i>{% else %}<i class="fas fa-minus" style="color: var(--t2); opacity:0.4;"></i>{% endif %}
+          </td>
+          <td style="text-align: center;">
+            {% if perm.code in student_perms %}<i class="fas fa-check-circle" style="color: var(--green);"></i>{% else %}<i class="fas fa-minus" style="color: var(--t2); opacity:0.4;"></i>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

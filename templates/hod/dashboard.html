@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+{% block title %}HOD Dashboard — SmartAttend{% endblock %}
+{% block content %}
+<div class="fu fu1" style="margin-bottom: 24px;">
+  <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+    <div>
+      <h1 style="font-family: var(--fd); font-size: 28px; font-weight: 800; color: var(--t0); margin-bottom: 4px;">
+        Department Dashboard
+      </h1>
+      <p style="font-size: 14px; color: var(--t2);">
+        <i class="fas fa-building-user" style="color: var(--brand);"></i> Department of {{ dept_name }}
+      </p>
+    </div>
+    <div style="display: flex; gap: 10px;">
+      <span class="badge bagr" style="padding: 8px 14px; font-size: 12px;">
+        <i class="fas fa-calendar-day"></i> {{ today }}
+      </span>
+    </div>
+  </div>
+</div>
+
+<!-- Key Stat Cards -->
+<div class="sg fu fu2">
+  <div class="sc">
+    <div class="sc-glow" style="background: var(--brand);"></div>
+    <div class="sc-ico ip"><i class="fas fa-chalkboard-user"></i></div>
+    <div class="sc-val">{{ total_teachers }}</div>
+    <div class="sc-lbl">Department Teachers</div>
+  </div>
+  <div class="sc">
+    <div class="sc-glow" style="background: var(--green);"></div>
+    <div class="sc-ico ig"><i class="fas fa-user-graduate"></i></div>
+    <div class="sc-val">{{ total_students }}</div>
+    <div class="sc-lbl">Total Students</div>
+  </div>
+  <div class="sc">
+    <div class="sc-glow" style="background: var(--gold);"></div>
+    <div class="sc-ico iy"><i class="fas fa-book-open"></i></div>
+    <div class="sc-val">{{ total_subjects }}</div>
+    <div class="sc-lbl">Department Subjects</div>
+  </div>
+  <div class="sc">
+    <div class="sc-glow" style="background: var(--brand-l);"></div>
+    <div class="sc-ico ic"><i class="fas fa-chart-line"></i></div>
+    <div class="sc-val">{{ today_pct }}%</div>
+    <div class="sc-lbl">Today's Attendance</div>
+  </div>
+</div>
+
+<!-- Pending Approvals & Department Chart -->
+<div class="g2 fu fu3" style="margin-bottom: 24px;">
+  <!-- Weekly Attendance Trend -->
+  <div class="card">
+    <div class="c-hd">
+      <div>
+        <div class="c-title"><i class="fas fa-chart-area" style="color: var(--brand); margin-right: 6px;"></i> Department Weekly Attendance</div>
+        <div class="c-sub">Attendance activity across {{ dept_name }}</div>
+      </div>
+    </div>
+    <div style="height: 240px; position: relative;">
+      <canvas id="hodWeeklyChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Pending Faculty Requests -->
+  <div class="card">
+    <div class="c-hd">
+      <div>
+        <div class="c-title"><i class="fas fa-clock-rotate-left" style="color: var(--gold); margin-right: 6px;"></i> Pending Access Requests</div>
+        <div class="c-sub">Teacher subject & class access approvals</div>
+      </div>
+      <span class="badge bay">{{ pending_approvals|length }} Pending</span>
+    </div>
+    
+    {% if pending_approvals %}
+    <div style="display: flex; flex-direction: column; gap: 12px; max-height: 230px; overflow-y: auto;">
+      {% for req in pending_approvals %}
+      <div style="padding: 12px 14px; background: var(--bg0); border-radius: 10px; display: flex; align-items: center; justify-content: space-between;">
+        <div>
+          <div style="font-weight: 700; font-size: 13.5px; color: var(--t0);">{{ req.teacher.name }}</div>
+          <div style="font-size: 11.5px; color: var(--t2); margin-top: 2px;">
+            Subject: <strong>{{ req.subject.name if req.subject else 'N/A' }}</strong> | Class: {{ req.class_ref.full_name if req.class_ref else 'N/A' }}
+          </div>
+        </div>
+        <form method="POST" action="{{ url_for('hod.approve_teacher', req_id=req.id) }}" style="margin:0;">
+          <button type="submit" class="btn bg btn-sm">
+            <i class="fas fa-check"></i> Approve
+          </button>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div style="text-align: center; padding: 40px 0; color: var(--t2); font-size: 13px;">
+      <i class="fas fa-check-circle" style="font-size: 32px; color: var(--green); display: block; margin-bottom: 8px; opacity: 0.8;"></i>
+      No pending access requests for your department.
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Department Teachers Table -->
+<div class="card fu fu4">
+  <div class="c-hd">
+    <div>
+      <div class="c-title"><i class="fas fa-users" style="color: var(--brand); margin-right: 6px;"></i> Department Faculty</div>
+      <div class="c-sub">Teachers assigned to {{ dept_name }}</div>
+    </div>
+  </div>
+
+  <div style="overflow-x: auto;">
+    <table>
+      <thead>
+        <tr>
+          <th>Faculty Name</th>
+          <th>Employee ID</th>
+          <th>Email</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in teachers %}
+        <tr>
+          <td style="font-weight: 600;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--brand); color:#fff; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700;">
+                {{ t.get_initials() }}
+              </div>
+              {{ t.name }}
+            </div>
+          </td>
+          <td><code>{{ t.employee_id or 'N/A' }}</code></td>
+          <td>{{ t.email }}</td>
+          <td>
+            {% if t.is_active_account %}
+            <span class="badge bag"><i class="fas fa-circle-check"></i> Active</span>
+            {% else %}
+            <span class="badge bar"><i class="fas fa-circle-xmark"></i> Pending Approval</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="4" style="text-align: center; color: var(--t2); padding: 24px;">No teachers registered in this department yet.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const weeklyData = {{ weekly|safe }};
+  const ctx = document.getElementById('hodWeeklyChart').getContext('2d');
+  
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: weeklyData.map(d => d.date),
+      datasets: [
+        {
+          label: 'Present',
+          data: weeklyData.map(d => d.present),
+          backgroundColor: '#2DA84F',
+          borderRadius: 6
+        },
+        {
+          label: 'Absent',
+          data: weeklyData.map(d => d.absent),
+          backgroundColor: '#E1251B',
+          borderRadius: 6
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top' }
+      },
+      scales: {
+        x: { grid: { display: false } },
+        y: { beginAtZero: true }
+      }
+    }
+  });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% block title %}Director Dashboard — SmartAttend{% endblock %}
+{% block content %}
+<div class="fu fu1" style="margin-bottom: 24px;">
+  <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+    <div>
+      <h1 style="font-family: var(--fd); font-size: 28px; font-weight: 800; color: var(--t0); margin-bottom: 4px;">
+        Institutional Overview Dashboard
+      </h1>
+      <p style="font-size: 14px; color: var(--t2);">
+        <i class="fas fa-university" style="color: var(--brand);"></i> {{ institute_name }}
+      </p>
+    </div>
+    <div>
+      <span class="badge bagr" style="padding: 8px 14px; font-size: 12px;">
+        <i class="fas fa-shield-halved" style="color: var(--green);"></i> Executive Director Access
+      </span>
+    </div>
+  </div>
+</div>
+
+<!-- Executive Metric Cards -->
+<div class="sg fu fu2">
+  <div class="sc">
+    <div class="sc-glow" style="background: var(--brand);"></div>
+    <div class="sc-ico ip"><i class="fas fa-building"></i></div>
+    <div class="sc-val">{{ total_departments }}</div>
+    <div class="sc-lbl">Departments</div>
+  </div>
+  <div class="sc">
+    <div class="sc-glow" style="background: var(--gold);"></div>
+    <div class="sc-ico iy"><i class="fas fa-user-tie"></i></div>
+    <div class="sc-val">{{ total_hods }}</div>
+    <div class="sc-lbl">HODs</div>
+  </div>
+  <div class="sc">
+    <div class="sc-glow" style="background: var(--brand-l);"></div>
+    <div class="sc-ico ic"><i class="fas fa-chalkboard-user"></i></div>
+    <div class="sc-val">{{ total_teachers }}</div>
+    <div class="sc-lbl">Faculty Members</div>
+  </div>
+  <div class="sc">
+    <div class="sc-glow" style="background: var(--green);"></div>
+    <div class="sc-ico ig"><i class="fas fa-user-graduate"></i></div>
+    <div class="sc-val">{{ total_students }}</div>
+    <div class="sc-lbl">Total Students</div>
+  </div>
+</div>
+
+<!-- Department Performance & Weekly Trend -->
+<div class="g2 fu fu3" style="margin-bottom: 24px;">
+  <!-- Institutional Trend -->
+  <div class="card">
+    <div class="c-hd">
+      <div>
+        <div class="c-title"><i class="fas fa-chart-line" style="color: var(--brand); margin-right: 6px;"></i> Institutional Weekly Attendance</div>
+        <div class="c-sub">Total attendance records across all college departments</div>
+      </div>
+    </div>
+    <div style="height: 240px; position: relative;">
+      <canvas id="directorWeeklyChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Executive Summary Card -->
+  <div class="card" style="display: flex; flex-direction: column; justify-content: center; background: linear-gradient(135deg, rgba(15,32,76,0.03), rgba(28,59,120,0.08));">
+    <div style="text-align: center; padding: 20px;">
+      <div style="width: 64px; height: 64px; border-radius: 50%; background: var(--brand); color:#fff; display:flex; align-items:center; justify-content:center; font-size:28px; margin: 0 auto 16px; box-shadow: 0 8px 20px rgba(15,32,76,0.2);">
+        <i class="fas fa-award"></i>
+      </div>
+      <h3 style="font-family: var(--fd); font-size: 32px; font-weight: 800; color: var(--brand); margin-bottom: 4px;">
+        {{ overall_attendance_pct }}%
+      </h3>
+      <div style="font-size: 14px; font-weight: 700; color: var(--t0); margin-bottom: 8px;">
+        Overall Institution Attendance Rate
+      </div>
+      <p style="font-size: 12.5px; color: var(--t2); max-width: 320px; margin: 0 auto; line-height: 1.5;">
+        Real-time aggregated attendance metric compiled across {{ total_classes }} classes and {{ total_departments }} academic departments.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- Department Performance Breakdown Table -->
+<div class="card fu fu4">
+  <div class="c-hd">
+    <div>
+      <div class="c-title"><i class="fas fa-sitemap" style="color: var(--brand); margin-right: 6px;"></i> Department Performance & Leadership</div>
+      <div class="c-sub">Departmental statistics and assigned HODs</div>
+    </div>
+  </div>
+
+  <div style="overflow-x: auto;">
+    <table>
+      <thead>
+        <tr>
+          <th>Department Code</th>
+          <th>Department Name</th>
+          <th>Head of Department (HOD)</th>
+          <th>Classes</th>
+          <th>Students</th>
+          <th>Attendance Rate</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in dept_stats %}
+        <tr>
+          <td><code>{{ d.code }}</code></td>
+          <td style="font-weight: 600; color: var(--t0);">{{ d.name }}</td>
+          <td>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <i class="fas fa-user-tie" style="color: var(--brand); font-size: 13px;"></i>
+              <span>{{ d.hod_name }}</span>
+            </div>
+          </td>
+          <td>{{ d.classes_count }}</td>
+          <td>{{ d.students_count }}</td>
+          <td>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div class="prog" style="width: 100px;">
+                <div class="prog-f" style="width: {{ d.attendance_pct }}%;"></div>
+              </div>
+              <span style="font-weight: 700; font-size: 13px;">{{ d.attendance_pct }}%</span>
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="6" style="text-align: center; color: var(--t2); padding: 24px;">No departments found.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const weeklyData = {{ weekly|safe }};
+  const ctx = document.getElementById('directorWeeklyChart').getContext('2d');
+  
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: weeklyData.map(d => d.date),
+      datasets: [
+        {
+          label: 'Present Students',
+          data: weeklyData.map(d => d.present),
+          borderColor: '#0F204C',
+          backgroundColor: 'rgba(15, 32, 76, 0.1)',
+          fill: true,
+          tension: 0.3,
+          borderWidth: 3
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top' }
+      },
+      scales: {
+        x: { grid: { display: false } },
+        y: { beginAtZero: true }
+      }
+    }
+  });
+});
+</script>
+{% endblock %}
