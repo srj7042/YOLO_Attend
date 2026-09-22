@@ -65,6 +65,32 @@ def dashboard():
         if len(faculty_stats) >= 4:
             break
 
+    # Student Block Metrics & Roster
+    pending_students_count = PendingStudent.query.filter_by(status='pending').count()
+    face_enrolled_count = Student.query.filter(Student.photo_count > 0).count()
+    branches = ['AIML', 'Computer', 'IT']
+    branch_counts = {b: Student.query.filter(Student.branch.ilike(f'%{b}%')).count() for b in branches}
+
+    recent_students_raw = Student.query.order_by(Student.created_at.desc()).limit(10).all()
+    recent_students_list = []
+    for s in recent_students_raw:
+        total_att = AttendanceRecord.query.filter_by(student_id=s.id).count()
+        pres_att = AttendanceRecord.query.filter_by(student_id=s.id, status='present').count()
+        pct = round((pres_att / total_att * 100), 1) if total_att else 0
+        recent_students_list.append({
+            'id': s.id,
+            'name': s.name,
+            'student_id': s.student_id or s.registration_number or f'STU{s.id:03d}',
+            'roll_number': s.roll_number or '-',
+            'email': s.email or '-',
+            'branch': s.branch or 'General',
+            'class_name': s.class_ref.full_name if s.class_ref else 'Unassigned',
+            'has_face': (s.photo_count or 0) > 0,
+            'photo_count': s.photo_count or 0,
+            'attendance_pct': pct,
+            'total_attendance': total_att
+        })
+
     return render_template('admin/dashboard.html',
         total_students=total_students,
         total_classes=total_classes,
@@ -75,6 +101,10 @@ def dashboard():
         monthly=json.dumps(months_data),
         recent_approvals=recent_approvals,
         faculty_stats=faculty_stats,
+        recent_students=recent_students_list,
+        pending_students_count=pending_students_count,
+        face_enrolled_count=face_enrolled_count,
+        branch_counts=branch_counts,
         institute_name="GH Raisoni College of Engineering & Management"
     )
 
@@ -515,7 +545,8 @@ def upload_photo(student_id):
 
     for f in files:
         if f and f.filename:
-            path = os.path.join('/tmp', f'student_{student_id}_{f.filename}')
+            import tempfile
+            path = os.path.join(tempfile.gettempdir(), f'student_{student_id}_{f.filename}')
             f.save(path)
             encs = detect_and_encode_faces(path)
             all_encodings.extend(encs)

@@ -27,8 +27,9 @@ def create_app():
             'has_permission': lambda perm: user_has_permission(current_user, perm)
         }
         if current_user.is_authenticated and current_user.role in ('admin', 'hod'):
-            from models import ApprovalRequest
+            from models import ApprovalRequest, PendingStudent
             ctx['pending_approvals_count'] = ApprovalRequest.query.filter_by(status='pending').count()
+            ctx['pending_students_count'] = PendingStudent.query.filter_by(status='pending').count()
         return ctx
 
     from routes.auth import auth_bp

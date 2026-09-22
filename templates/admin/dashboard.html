@@ -262,6 +262,225 @@
   padding: 16px;
 }
 
+/* Student Block Styles */
+.student-block-panel {
+  background: var(--bg1);
+  border: 1px solid var(--b0);
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: 0 4px 20px rgba(15,32,76,0.06);
+  margin-bottom: 30px;
+  position: relative;
+}
+.sb-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--b0);
+}
+.sb-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.sb-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(15, 32, 76, 0.08);
+  color: var(--brand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+}
+.sb-title {
+  font-family: var(--font-heading, "Manrope", sans-serif);
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--t0);
+}
+.sb-sub {
+  font-size: 12.5px;
+  color: var(--t2);
+  margin-top: 2px;
+}
+.sb-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* KPI row inside student block */
+.sb-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.sb-kpi-card {
+  background: var(--bg0);
+  border: 1px solid var(--b0);
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.sb-kpi-num {
+  font-family: var(--font-heading, "Manrope", sans-serif);
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--t0);
+  margin-top: 4px;
+}
+.sb-kpi-lbl {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--t2);
+}
+.sb-kpi-note {
+  font-size: 11px;
+  color: var(--t1);
+  margin-top: 4px;
+}
+
+/* Toolbar */
+.sb-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.sb-search-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 250px;
+  max-width: 380px;
+}
+.sb-search-wrap i {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--t2);
+  font-size: 13px;
+}
+.sb-search-input {
+  width: 100%;
+  padding: 8px 14px 8px 34px;
+  background: var(--bg0);
+  border: 1px solid var(--b0);
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: var(--font-body);
+  color: var(--t0);
+  outline: none;
+  transition: all 0.2s;
+}
+.sb-search-input:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(15,32,76,0.1);
+}
+.sb-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Table styling */
+.sb-table-wrap {
+  overflow-x: auto;
+  border-radius: 12px;
+  border: 1px solid var(--b0);
+}
+.sb-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.sb-table th {
+  background: var(--bg0);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--t2);
+  letter-spacing: 0.5px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--b0);
+  white-space: nowrap;
+}
+.sb-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--b0);
+  font-size: 13px;
+  vertical-align: middle;
+}
+.sb-table tr:last-child td {
+  border-bottom: none;
+}
+.sb-table tr:hover td {
+  background: rgba(15, 32, 76, 0.02);
+}
+
+.stu-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--brand), var(--brand-l));
+  color: #fff;
+  font-weight: 700;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.stu-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.stu-name {
+  font-weight: 600;
+  color: var(--t0);
+}
+.stu-email {
+  font-size: 11px;
+  color: var(--t2);
+}
+.reg-badge {
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(15,32,76,0.06);
+  color: var(--brand-l);
+  padding: 2px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+  border: 1px solid rgba(15,32,76,0.12);
+}
+.branch-pill {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  display: inline-block;
+}
+.branch-aiml { background: rgba(147, 51, 234, 0.1); color: #7E22CE; border: 1px solid rgba(147, 51, 234, 0.25); }
+.branch-computer { background: rgba(37, 99, 235, 0.1); color: #1D4ED8; border: 1px solid rgba(37, 99, 235, 0.25); }
+.branch-it { background: rgba(13, 148, 136, 0.1); color: #0F766E; border: 1px solid rgba(13, 148, 136, 0.25); }
+.branch-gen { background: rgba(100, 116, 139, 0.1); color: #475569; border: 1px solid rgba(100, 116, 139, 0.25); }
+
 /* Hide topbar title since it's customized in page */
 .topbar-title { display: none; }
 </style>
@@ -359,6 +578,191 @@
   </div>
 </div>
 
+<!-- STUDENT MANAGEMENT & BIOMETRIC ROSTER BLOCK -->
+<div class="student-block-panel fu fu3" id="student-block">
+  <div class="sb-header">
+    <div class="sb-title-wrap">
+      <div class="sb-icon"><i class="fas fa-user-graduate"></i></div>
+      <div>
+        <div class="sb-title">Student Management &amp; Biometric Enrolled Roster</div>
+        <div class="sb-sub">Live student registry, AI face recognition readiness, and individual attendance ratios</div>
+      </div>
+    </div>
+    <div class="sb-actions">
+      {% if pending_students_count > 0 %}
+      <a href="{{ url_for('admin.student_registration', tab='pending') }}" class="btn btn-sm" style="background:#FFF3CD; color:#856404; border:1px solid #FFEEBA; font-weight:700;">
+        <i class="fas fa-hourglass-half"></i> {{ pending_students_count }} Pending Verification
+      </a>
+      {% endif %}
+      <a href="{{ url_for('admin.student_registration', tab='add') }}" class="btn btn-sm bs">
+        <i class="fas fa-user-plus"></i> Add Student
+      </a>
+      <a href="{{ url_for('admin.student_registration') }}" class="btn btn-sm bp">
+        <i class="fas fa-id-card"></i> Manage Full Directory
+      </a>
+    </div>
+  </div>
+
+  <!-- KPI summary inside block -->
+  <div class="sb-kpi-grid">
+    <div class="sb-kpi-card">
+      <div class="sb-kpi-lbl">Total Enrolled</div>
+      <div class="sb-kpi-num" style="color:var(--brand);">{{ total_students }}</div>
+      <div class="sb-kpi-note"><i class="fas fa-circle-check" style="color:var(--green); margin-right:4px;"></i> Active students in system</div>
+    </div>
+    <div class="sb-kpi-card">
+      <div class="sb-kpi-lbl">Pending Review</div>
+      <div class="sb-kpi-num" style="color:{% if pending_students_count > 0 %}#E67E22{% else %}var(--green){% endif %};">
+        {{ pending_students_count }}
+      </div>
+      <div class="sb-kpi-note">
+        {% if pending_students_count > 0 %}
+        <span style="color:#E67E22;"><i class="fas fa-exclamation-circle"></i> Requires Admin verification</span>
+        {% else %}
+        <span style="color:var(--green);"><i class="fas fa-check"></i> Queue all clear</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="sb-kpi-card">
+      <div class="sb-kpi-lbl">AI Biometric Ready</div>
+      <div class="sb-kpi-num" style="color:#2563EB;">
+        {{ face_enrolled_count }} <span style="font-size:13px; font-weight:500; color:var(--t2);">/ {{ total_students }}</span>
+      </div>
+      {% set pct_face = (face_enrolled_count / total_students * 100)|round(1) if total_students > 0 else 0 %}
+      <div style="margin-top:6px;">
+        <div style="height:5px; background:var(--bg2); border-radius:10px; overflow:hidden;">
+          <div style="height:100%; width:{{ pct_face }}%; background:#2563EB; border-radius:10px;"></div>
+        </div>
+        <div class="sb-kpi-note" style="margin-top:4px;">{{ pct_face }}% facial embeddings trained</div>
+      </div>
+    </div>
+    <div class="sb-kpi-card">
+      <div class="sb-kpi-lbl">Branch Breakdown</div>
+      <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:8px;">
+        <span class="branch-pill branch-aiml">AIML: {{ branch_counts.AIML|default(0) }}</span>
+        <span class="branch-pill branch-computer">CSE: {{ branch_counts.Computer|default(0) }}</span>
+        <span class="branch-pill branch-it">IT: {{ branch_counts.IT|default(0) }}</span>
+      </div>
+      <div class="sb-kpi-note" style="margin-top:8px;">{{ total_classes }} active divisions</div>
+    </div>
+  </div>
+
+  <!-- Search and filter toolbar -->
+  <div class="sb-toolbar">
+    <div class="sb-search-wrap">
+      <i class="fas fa-search"></i>
+      <input type="text" id="studentBlockSearch" class="sb-search-input" placeholder="Search student by name, ID, roll no, or class..." onkeyup="filterStudentTable()">
+    </div>
+    <div class="sb-filter-group">
+      <select class="select-mini" id="sbBranchFilter" onchange="filterStudentTable()">
+        <option value="">All Branches</option>
+        <option value="aiml">AIML</option>
+        <option value="comp">Computer / CSE</option>
+        <option value="it">IT</option>
+      </select>
+      <select class="select-mini" id="sbFaceFilter" onchange="filterStudentTable()">
+        <option value="">All Biometric Status</option>
+        <option value="ready">AI Ready</option>
+        <option value="missing">Missing Face</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Table Roster -->
+  <div class="sb-table-wrap">
+    <table class="sb-table" id="studentRosterTable">
+      <thead>
+        <tr>
+          <th>Student</th>
+          <th>Reg / Student ID</th>
+          <th>Roll No</th>
+          <th>Class &amp; Division</th>
+          <th>Branch</th>
+          <th>Biometric Face AI</th>
+          <th>Attendance Rate</th>
+          <th style="text-align:right;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if recent_students and recent_students|length > 0 %}
+          {% for st in recent_students %}
+          <tr class="stu-row" data-name="{{ st.name|lower }}" data-id="{{ st.student_id|lower }}" data-roll="{{ st.roll_number|lower }}" data-class="{{ st.class_name|lower }}" data-branch="{{ st.branch|lower }}" data-face="{% if st.has_face %}ready{% else %}missing{% endif %}">
+            <td>
+              <div class="stu-info">
+                <div class="stu-avatar">
+                  {{ st.name[:2]|upper }}
+                </div>
+                <div>
+                  <div class="stu-name">{{ st.name }}</div>
+                  <div class="stu-email">{{ st.email }}</div>
+                </div>
+              </div>
+            </td>
+            <td>
+              <span class="reg-badge">{{ st.student_id }}</span>
+            </td>
+            <td>
+              <strong>{{ st.roll_number }}</strong>
+            </td>
+            <td>
+              <span>{{ st.class_name }}</span>
+            </td>
+            <td>
+              {% if 'aiml' in st.branch|lower %}
+                <span class="branch-pill branch-aiml">{{ st.branch }}</span>
+              {% elif 'comp' in st.branch|lower or 'cse' in st.branch|lower %}
+                <span class="branch-pill branch-computer">{{ st.branch }}</span>
+              {% elif 'it' in st.branch|lower or 'info' in st.branch|lower %}
+                <span class="branch-pill branch-it">{{ st.branch }}</span>
+              {% else %}
+                <span class="branch-pill branch-gen">{{ st.branch }}</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if st.has_face %}
+                <span class="badge bag"><i class="fas fa-check-circle"></i> AI Ready ({{ st.photo_count }} photos)</span>
+              {% else %}
+                <span class="badge bay"><i class="fas fa-triangle-exclamation"></i> Missing Face</span>
+              {% endif %}
+            </td>
+            <td>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <div style="flex:1; width:70px; height:6px; background:var(--bg2); border-radius:10px; overflow:hidden;">
+                  <div style="height:100%; width:{{ st.attendance_pct }}%; background:{% if st.attendance_pct >= 75 %}var(--green){% elif st.attendance_pct >= 50 %}#E67E22{% else %}var(--red){% endif %}; border-radius:10px;"></div>
+                </div>
+                <span style="font-size:12px; font-weight:700; color:{% if st.attendance_pct >= 75 %}var(--green){% elif st.attendance_pct >= 50 %}#E67E22{% else %}var(--red){% endif %};">
+                  {{ st.attendance_pct }}%
+                </span>
+              </div>
+            </td>
+            <td style="text-align:right;">
+              <div style="display:flex; justify-content:flex-end; gap:6px;">
+                <button type="button" class="btn btn-sm bs" style="padding:4px 8px; font-size:11px;" onclick="openQuickUploadModal('{{ st.id }}', '{{ st.name|escape }}')" title="Upload Face Photo">
+                  <i class="fas fa-camera"></i> Photos
+                </button>
+                <a href="{{ url_for('admin.student_registration', tab='verified') }}" class="btn btn-sm bp" style="padding:4px 8px; font-size:11px;" title="View in Registration Registry">
+                  <i class="fas fa-arrow-up-right-from-square"></i>
+                </a>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="8" style="text-align:center; padding:36px; color:var(--t2);">
+              <i class="fas fa-user-graduate" style="font-size:32px; display:block; margin-bottom:10px; opacity:0.3;"></i>
+              No students enrolled yet. 
+              <div style="margin-top:10px;">
+                <a href="{{ url_for('admin.student_registration', tab='add') }}" class="btn btn-sm bp"><i class="fas fa-plus"></i> Register First Student</a>
+              </div>
+            </td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
 <div class="bottom-grid fu fu3">
   <div class="panel" style="background:transparent; padding:0; box-shadow:none;">
     <div class="panel-header" style="margin-bottom: 16px;">
@@ -414,6 +818,36 @@
         </div>
       </a>
     </div>
+  </div>
+</div>
+
+<!-- Quick Photo Upload Modal -->
+<div class="mbg" id="modalQuickPhotoUpload">
+  <div class="modal">
+    <div class="m-title">
+      <span><i class="fas fa-camera" style="color:var(--brand); margin-right:8px;"></i> Student Face Photo Registration</span>
+      <button type="button" onclick="closeModal('modalQuickPhotoUpload')" style="background:none; border:none; font-size:20px; cursor:pointer; color:var(--t2);">&times;</button>
+    </div>
+    <form id="quickPhotoForm" onsubmit="handleQuickPhotoUpload(event)">
+      <input type="hidden" id="quickPhotoStudentId" name="student_id" value="">
+      <div style="font-size:13.5px; color:var(--t1); margin-bottom:14px;">
+        Registering AI face photos for: <strong id="quickPhotoStudentName" style="color:var(--brand);"></strong>
+      </div>
+      <div class="fg">
+        <label class="fl">Select Student Face Photo(s)</label>
+        <input type="file" id="quickPhotoFiles" name="photos" class="fc" accept="image/png, image/jpeg, image/jpg, image/webp" multiple required>
+        <div style="font-size:11.5px; color:var(--t2); margin-top:5px;">
+          <i class="fas fa-info-circle"></i> Clear front-facing photos will be encoded using YOLOv8 &amp; DeepFace Facenet models for automatic classroom attendance recognition.
+        </div>
+      </div>
+      <div id="quickPhotoStatus" style="display:none; padding:10px; border-radius:8px; font-size:12.5px; margin-bottom:12px;"></div>
+      <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+        <button type="button" class="btn bs" onclick="closeModal('modalQuickPhotoUpload')">Cancel</button>
+        <button type="submit" class="btn bp" id="quickPhotoSubmitBtn">
+          <i class="fas fa-cloud-arrow-up"></i> Upload &amp; Train AI
+        </button>
+      </div>
+    </form>
   </div>
 </div>
 {% endblock %}
@@ -506,5 +940,99 @@ function updateChartData() {
 }
 
 window.addEventListener('load', initChart);
+
+// Student Block Filter Logic
+function filterStudentTable() {
+  const query = (document.getElementById('studentBlockSearch').value || '').toLowerCase().trim();
+  const branchFilter = (document.getElementById('sbBranchFilter').value || '').toLowerCase().trim();
+  const faceFilter = (document.getElementById('sbFaceFilter').value || '').toLowerCase().trim();
+
+  const rows = document.querySelectorAll('#studentRosterTable tbody tr.stu-row');
+  rows.forEach(row => {
+    const name = row.getAttribute('data-name') || '';
+    const id = row.getAttribute('data-id') || '';
+    const roll = row.getAttribute('data-roll') || '';
+    const cls = row.getAttribute('data-class') || '';
+    const branch = row.getAttribute('data-branch') || '';
+    const face = row.getAttribute('data-face') || '';
+
+    const matchesQuery = !query || name.includes(query) || id.includes(query) || roll.includes(query) || cls.includes(query);
+    const matchesBranch = !branchFilter || branch.includes(branchFilter);
+    const matchesFace = !faceFilter || face === faceFilter;
+
+    if (matchesQuery && matchesBranch && matchesFace) {
+      row.style.display = '';
+    } else {
+      row.style.display = 'none';
+    }
+  });
+}
+
+// Student Quick Face Photo Upload Modal
+let currentUploadStudentId = null;
+
+function openQuickUploadModal(studentId, studentName) {
+  currentUploadStudentId = studentId;
+  document.getElementById('quickPhotoStudentId').value = studentId;
+  document.getElementById('quickPhotoStudentName').innerText = studentName;
+  document.getElementById('quickPhotoFiles').value = '';
+  const statusDiv = document.getElementById('quickPhotoStatus');
+  statusDiv.style.display = 'none';
+  statusDiv.className = '';
+  statusDiv.innerHTML = '';
+  document.getElementById('quickPhotoSubmitBtn').disabled = false;
+  document.getElementById('quickPhotoSubmitBtn').innerHTML = '<i class="fas fa-cloud-arrow-up"></i> Upload &amp; Train AI';
+  openModal('modalQuickPhotoUpload');
+}
+
+async function handleQuickPhotoUpload(e) {
+  e.preventDefault();
+  if (!currentUploadStudentId) return;
+
+  const fileInput = document.getElementById('quickPhotoFiles');
+  if (!fileInput.files || fileInput.files.length === 0) {
+    alert('Please select at least one photo.');
+    return;
+  }
+
+  const formData = new FormData();
+  for (let i = 0; i < fileInput.files.length; i++) {
+    formData.append('photos', fileInput.files[i]);
+  }
+
+  const submitBtn = document.getElementById('quickPhotoSubmitBtn');
+  const statusDiv = document.getElementById('quickPhotoStatus');
+  
+  submitBtn.disabled = true;
+  submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing &amp; Encoding...';
+  statusDiv.style.display = 'block';
+  statusDiv.className = 'al al-info';
+  statusDiv.innerHTML = '<i class="fas fa-brain"></i> Extracting facial features with YOLO &amp; DeepFace Facenet...';
+
+  try {
+    const res = await fetch(`/admin/upload_photo/${currentUploadStudentId}`, {
+      method: 'POST',
+      body: formData
+    });
+    const data = await res.json();
+    if (data.success) {
+      statusDiv.className = 'al al-ok';
+      statusDiv.innerHTML = `<i class="fas fa-check-circle"></i> Success! Generated ${data.count} face encoding vectors. Reloading...`;
+      setTimeout(() => {
+        window.location.reload();
+      }, 1200);
+    } else {
+      statusDiv.className = 'al al-err';
+      statusDiv.innerHTML = `<i class="fas fa-triangle-exclamation"></i> Error: ${data.error || 'Failed to encode photos.'}`;
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = '<i class="fas fa-cloud-arrow-up"></i> Try Again';
+    }
+  } catch (err) {
+    statusDiv.className = 'al al-err';
+    statusDiv.innerHTML = `<i class="fas fa-triangle-exclamation"></i> Network Error: ${err.message}`;
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = '<i class="fas fa-cloud-arrow-up"></i> Try Again';
+  }
+}
 </script>
 {% endblock %}
