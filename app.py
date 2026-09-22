@@ -23,8 +23,9 @@ def create_app():
         from datetime import date
         ctx = {'today': str(date.today())}
         if current_user.is_authenticated and current_user.role == 'admin':
-            from models import ApprovalRequest
+            from models import ApprovalRequest, PendingStudent
             ctx['pending_approvals_count'] = ApprovalRequest.query.filter_by(status='pending').count()
+            ctx['pending_students_count'] = PendingStudent.query.filter_by(status='pending').count()
         return ctx
 
     from routes.auth import auth_bp
