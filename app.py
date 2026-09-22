@@ -55,6 +55,17 @@ def create_app():
 
     with app.app_context():
         db.create_all()
+        # Safe migration check for training_status in students table
+        try:
+            from sqlalchemy import inspect, text
+            inspector = inspect(db.engine)
+            columns = [c['name'] for c in inspector.get_columns('students')]
+            if 'training_status' not in columns:
+                with db.engine.connect() as conn:
+                    conn.execute(text("ALTER TABLE students ADD COLUMN training_status VARCHAR(30) DEFAULT 'Not Trained'"))
+                    conn.commit()
+        except Exception as e:
+            print(f"[DB INIT] Column check notice: {e}")
         seed_demo_data()
 
     return app

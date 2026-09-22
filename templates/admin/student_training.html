@@ -1,0 +1,942 @@
+{% extends "base.html" %}
+{% block title %}Student Training — SmartAttend{% endblock %}
+{% block page_title %}Student AI Training Module{% endblock %}
+
+{% block head %}
+<style>
+  /* Header & Stats styling */
+  .train-hero { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 16px; }
+  .train-title { font-family: var(--font-heading); font-size: 28px; font-weight: 800; color: var(--brand); letter-spacing: -0.5px; }
+  .train-subtitle { font-size: 13.5px; color: var(--t2); margin-top: 4px; }
+  
+  /* Badges & Status */
+  .badge-trained { background: rgba(45, 168, 79, 0.15); color: var(--green); border: 1px solid rgba(45, 168, 79, 0.3); font-weight: 700; padding: 4px 10px; border-radius: 20px; font-size: 11.5px; display: inline-flex; align-items: center; gap: 6px; }
+  .badge-not-trained { background: rgba(245, 158, 11, 0.15); color: #D97706; border: 1px solid rgba(245, 158, 11, 0.3); font-weight: 700; padding: 4px 10px; border-radius: 20px; font-size: 11.5px; display: inline-flex; align-items: center; gap: 6px; }
+  .badge-training { background: rgba(59, 130, 246, 0.15); color: #2563EB; border: 1px solid rgba(59, 130, 246, 0.3); font-weight: 700; padding: 4px 10px; border-radius: 20px; font-size: 11.5px; display: inline-flex; align-items: center; gap: 6px; }
+
+  .branch-pill { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 6px; background: rgba(15,32,76,0.08); color: var(--brand); }
+  .reg-code { font-family: var(--font-mono); font-weight: 700; color: var(--brand-l); letter-spacing: 0.5px; background: rgba(15,32,76,0.06); padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+  .photo-count-pill { font-size: 11.5px; font-weight: 600; color: var(--t1); background: var(--glass); padding: 3px 8px; border-radius: 6px; border: 1px solid var(--b0); display: inline-flex; align-items: center; gap: 4px; }
+
+  /* Filter Toolbar */
+  .filter-bar {
+    background: var(--bg1);
+    border: 1px solid var(--b0);
+    border-radius: 14px;
+    padding: 16px 20px;
+    margin-bottom: 24px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    align-items: center;
+    box-shadow: 0 2px 8px rgba(15,32,76,0.04);
+  }
+  .filter-group { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 180px; }
+  .filter-group.search-group { flex: 2; min-width: 260px; }
+  .filter-label { font-size: 11px; font-weight: 700; color: var(--t2); text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; }
+
+  /* Student Cards Grid */
+  .students-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 20px;
+    margin-bottom: 40px;
+  }
+  .student-card {
+    background: var(--bg1);
+    border: 1px solid var(--b0);
+    border-radius: 16px;
+    padding: 20px;
+    position: relative;
+    box-shadow: 0 3px 12px rgba(15,32,76,0.04);
+    transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .student-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(15,32,76,0.08);
+    border-color: var(--brand-l);
+  }
+  .card-top { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 14px; }
+  .student-avatar {
+    width: 60px;
+    height: 60px;
+    border-radius: 14px;
+    object-fit: cover;
+    background: var(--bg3);
+    border: 2px solid var(--b0);
+    flex-shrink: 0;
+  }
+  .student-card-info { flex: 1; min-width: 0; }
+  .student-card-name {
+    font-family: var(--font-heading);
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--t0);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 2px;
+  }
+  .student-meta-row { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--t2); margin-bottom: 6px; flex-wrap: wrap; }
+  .student-dept-row { font-size: 12px; color: var(--t1); margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+  .student-class-row { font-size: 12px; color: var(--t2); display: flex; align-items: center; gap: 6px; }
+  
+  .card-divider { height: 1px; background: var(--b0); margin: 14px 0 12px; }
+  .card-bottom { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: auto; }
+  .card-actions { display: flex; gap: 8px; width: 100%; }
+  .card-actions .btn { flex: 1; justify-content: center; font-size: 12.5px; padding: 7px 10px; }
+
+  /* Modal Specific Styles */
+  .modal-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(12, 15, 26, 0.7); backdrop-filter: blur(6px);
+    display: none; align-items: center; justify-content: center; z-index: 1000;
+    opacity: 0; transition: opacity 0.25s ease;
+  }
+  .modal-overlay.open { display: flex; opacity: 1; }
+  .modal-box {
+    background: var(--bg1);
+    border: 1px solid var(--b1);
+    border-radius: 20px;
+    width: 90%;
+    max-width: 720px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.35);
+    animation: popIn 0.25s ease-out;
+    overflow: hidden;
+  }
+  .modal-header {
+    background: var(--brand);
+    color: #fff;
+    padding: 20px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .modal-title { font-family: var(--font-heading); font-size: 20px; font-weight: 700; color: #fff; }
+  .modal-close-btn { background: transparent; border: none; color: #fff; font-size: 18px; cursor: pointer; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: background 0.2s; }
+  .modal-close-btn:hover { background: rgba(255,255,255,0.15); }
+  .modal-body { padding: 24px; overflow-y: auto; flex: 1; }
+  .modal-footer { padding: 16px 24px; background: var(--bg0); border-top: 1px solid var(--b0); display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+
+  /* Upload & Gallery */
+  .upload-dropzone {
+    border: 2px dashed var(--brand-l);
+    background: rgba(15,32,76,0.03);
+    border-radius: 14px;
+    padding: 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 20px;
+  }
+  .upload-dropzone:hover, .upload-dropzone.dragover {
+    background: rgba(15,32,76,0.07);
+    border-color: var(--accent);
+  }
+  .gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 12px;
+    max-height: 260px;
+    overflow-y: auto;
+    padding: 4px;
+  }
+  .gallery-item {
+    position: relative;
+    border-radius: 10px;
+    overflow: hidden;
+    aspect-ratio: 1;
+    border: 1px solid var(--b0);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+    background: #000;
+  }
+  .gallery-thumb { width: 100%; height: 100%; object-fit: cover; transition: transform 0.2s; }
+  .gallery-item:hover .gallery-thumb { transform: scale(1.06); opacity: 0.9; }
+  .gallery-del-btn {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: rgba(225, 37, 27, 0.9);
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    opacity: 0;
+    transition: opacity 0.2s, transform 0.2s;
+  }
+  .gallery-item:hover .gallery-del-btn { opacity: 1; }
+  .gallery-del-btn:hover { transform: scale(1.1); background: #B91C1C; }
+
+  /* Toast Notification */
+  .toast-container {
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .toast {
+    background: var(--bg1);
+    color: var(--t0);
+    border: 1px solid var(--b1);
+    border-radius: 12px;
+    padding: 14px 18px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 300px;
+    animation: popIn 0.2s ease-out;
+  }
+  .toast-success { border-left: 4px solid var(--green); }
+  .toast-error { border-left: 4px solid var(--red); }
+  .toast-info { border-left: 4px solid var(--brand-l); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="train-hero fu fu1">
+  <div>
+    <div class="train-title"><i class="fas fa-brain" style="color: var(--accent); margin-right: 10px;"></i> Student Training Center</div>
+    <div class="train-subtitle">Manage facial training datasets, upload individual student photos, and train the YOLO face recognition model.</div>
+  </div>
+  <div>
+    <button class="btn bp btn-lg" id="trainAllBtn" onclick="trainAllStudents()">
+      <i class="fas fa-bolt"></i> <span>Train All Students</span>
+    </button>
+  </div>
+</div>
+
+<!-- Dynamic Summary Statistics -->
+<div class="sg fu fu1" style="margin-bottom: 24px;">
+  <div class="sc">
+    <div class="sc-glow" style="background: var(--brand)"></div>
+    <div class="sc-ico ip"><i class="fas fa-users"></i></div>
+    <div class="sc-val" style="color: var(--brand-l);" id="statTotalStudents">{{ total_students }}</div>
+    <div class="sc-lbl">Total Registered Students</div>
+  </div>
+
+  <div class="sc">
+    <div class="sc-glow" style="background: var(--green)"></div>
+    <div class="sc-ico ig"><i class="fas fa-user-check"></i></div>
+    <div class="sc-val" style="color: var(--green);" id="statTrainedStudents">{{ trained_students }}</div>
+    <div class="sc-lbl">Trained & Ready</div>
+  </div>
+
+  <div class="sc">
+    <div class="sc-glow" style="background: var(--gold)"></div>
+    <div class="sc-ico iy"><i class="fas fa-hourglass-half"></i></div>
+    <div class="sc-val" style="color: #D97706;" id="statNotTrainedStudents">{{ not_trained_students }}</div>
+    <div class="sc-lbl">Pending Training</div>
+  </div>
+
+  <div class="sc">
+    <div class="sc-glow" style="background: var(--cyan)"></div>
+    <div class="sc-ico ic"><i class="fas fa-images"></i></div>
+    <div class="sc-val" style="color: var(--brand-l);" id="statTotalPhotos">{{ total_photos }}</div>
+    <div class="sc-lbl">Total Training Photos</div>
+  </div>
+</div>
+
+<!-- Dynamic Filter & Search Toolbar -->
+<div class="filter-bar fu fu2">
+  <div class="filter-group search-group">
+    <i class="fas fa-magnifying-glass" style="color: var(--t2); font-size: 13px;"></i>
+    <input type="text" id="searchInput" class="fc" placeholder="Search student by name, student ID, roll no..." onkeyup="applyFilters()" style="padding: 8px 12px; font-size: 13px;">
+  </div>
+
+  <div class="filter-group">
+    <label class="filter-label" for="deptFilter">Department:</label>
+    <select id="deptFilter" class="fc" onchange="applyFilters()" style="padding: 8px 12px; font-size: 13px;">
+      <option value="">All Departments</option>
+      {% for dept in dept_names %}
+      <option value="{{ dept }}">{{ dept }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div class="filter-group">
+    <label class="filter-label" for="classFilter">Class:</label>
+    <select id="classFilter" class="fc" onchange="applyFilters()" style="padding: 8px 12px; font-size: 13px;">
+      <option value="">All Classes</option>
+      {% for cls in class_names %}
+      <option value="{{ cls }}">{{ cls }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div class="filter-group">
+    <label class="filter-label" for="statusFilter">Status:</label>
+    <select id="statusFilter" class="fc" onchange="applyFilters()" style="padding: 8px 12px; font-size: 13px;">
+      <option value="">All Statuses</option>
+      <option value="Trained">Trained</option>
+      <option value="Not Trained">Not Trained</option>
+    </select>
+  </div>
+
+  <button class="btn bs" onclick="resetFilters()" title="Reset Filters" style="padding: 8px 14px;">
+    <i class="fas fa-rotate-left"></i> Reset
+  </button>
+</div>
+
+<!-- Results Header & Count -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding: 0 4px;">
+  <div style="font-size: 13px; font-weight: 600; color: var(--t2);" id="resultCountText">
+    Showing {{ students|length }} of {{ total_students }} students
+  </div>
+</div>
+
+<!-- Students Cards Grid -->
+{% if students %}
+<div class="students-grid fu fu3" id="studentsGrid">
+  {% for s in students %}
+  <div class="student-card" 
+       id="student-card-{{ s.id }}"
+       data-name="{{ s.name|lower }}" 
+       data-code="{{ (s.student_id or s.registration_number or '')|lower }}" 
+       data-roll="{{ (s.roll_number or '')|lower }}" 
+       data-dept="{{ s.department_name }}" 
+       data-class="{{ s.class_name }}" 
+       data-status="{{ s.status_label }}">
+    
+    <div>
+      <div class="card-top">
+        <img src="{{ url_for('admin.get_student_avatar', student_id=s.id) }}" 
+             id="avatar-img-{{ s.id }}"
+             class="student-avatar" 
+             alt="{{ s.name }}" 
+             onerror="this.src='https://ui-avatars.com/api/?name={{ s.name|urlencode }}&background=0F204C&color=fff&size=128'">
+        
+        <div class="student-card-info">
+          <div class="student-card-name" title="{{ s.name }}">{{ s.name }}</div>
+          <div class="student-meta-row">
+            <span class="reg-code">{{ s.student_id or s.registration_number or 'STU-' ~ s.id }}</span>
+            <span>• Roll: <strong>{{ s.roll_number or '-' }}</strong></span>
+          </div>
+          <div id="status-badge-container-{{ s.id }}">
+            {% if s.status_label == 'Trained' %}
+            <span class="badge-trained"><i class="fas fa-check-circle"></i> Trained</span>
+            {% elif s.status_label == 'Training' %}
+            <span class="badge-training"><i class="fas fa-spinner fa-spin"></i> Training</span>
+            {% else %}
+            <span class="badge-not-trained"><i class="fas fa-clock"></i> Not Trained</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="student-dept-row">
+        <i class="fas fa-building-columns" style="color: var(--brand); font-size: 11px; width: 14px;"></i>
+        <span class="branch-pill">{{ s.department_name }}</span>
+      </div>
+
+      <div class="student-class-row">
+        <i class="fas fa-graduation-cap" style="color: var(--t2); font-size: 11px; width: 14px;"></i>
+        <span>{{ s.class_name }}</span>
+      </div>
+    </div>
+
+    <div>
+      <div class="card-divider"></div>
+      
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <span class="photo-count-pill" id="card-photo-count-{{ s.id }}">
+          <i class="fas fa-camera"></i> <span class="num">{{ s.image_count }}</span> Photos
+        </span>
+        <span style="font-size: 11px; color: var(--t2);" id="card-embedding-status-{{ s.id }}">
+          {% if s.has_embeddings %}
+          <span style="color: var(--green); font-weight: 600;"><i class="fas fa-vector-square"></i> Model Encoded</span>
+          {% else %}
+          <span style="color: var(--gold); font-weight: 600;"><i class="fas fa-circle-exclamation"></i> No Embeddings</span>
+          {% endif %}
+        </span>
+      </div>
+
+      <div class="card-actions">
+        <button class="btn bs" onclick="openPhotoModal({{ s.id }})" title="Manage and upload training images">
+          <i class="fas fa-images"></i> <span>Manage Photos</span>
+        </button>
+        <button class="btn bp" id="trainBtn-{{ s.id }}" onclick="trainSingleStudent({{ s.id }}, '{{ s.name|escape }}')" title="Train YOLO on this student's photos">
+          <i class="fas fa-bolt"></i> <span>Train Student</span>
+        </button>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Empty State for Filter Search -->
+<div id="noResultsState" style="display: none; text-align: center; padding: 60px 20px; background: var(--bg1); border-radius: 16px; border: 1px dashed var(--b0);">
+  <i class="fas fa-users-slash" style="font-size: 42px; color: var(--t2); margin-bottom: 14px;"></i>
+  <div style="font-family: var(--font-heading); font-size: 20px; font-weight: 700; color: var(--t0); margin-bottom: 6px;">No Matching Students Found</div>
+  <div style="font-size: 13.5px; color: var(--t2); margin-bottom: 16px;">Try adjusting your search query, department, or class filters.</div>
+  <button class="btn bs" onclick="resetFilters()"><i class="fas fa-rotate-left"></i> Reset All Filters</button>
+</div>
+
+{% else %}
+<div style="text-align: center; padding: 60px 20px; background: var(--bg1); border-radius: 16px; border: 1px dashed var(--b0);">
+  <i class="fas fa-id-card-clip" style="font-size: 48px; color: var(--brand-l); margin-bottom: 16px;"></i>
+  <div style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--t0); margin-bottom: 8px;">No Verified Students in Database</div>
+  <div style="font-size: 14px; color: var(--t2); max-width: 500px; margin: 0 auto 20px;">
+    Students registered and verified through the Student Registration module will automatically appear here for YOLO model training.
+  </div>
+  <a href="{{ url_for('admin.student_registration') }}" class="btn bp">
+    <i class="fas fa-plus"></i> Go to Student Registration
+  </a>
+</div>
+{% endif %}
+
+<!-- PHOTO MANAGEMENT MODAL -->
+<div class="modal-overlay" id="photoModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="mStudentName">Student Photos</div>
+        <div style="font-size: 12px; color: rgba(255,255,255,0.8); margin-top: 2px;" id="mStudentMeta">ID: -- | Dept: --</div>
+      </div>
+      <button class="modal-close-btn" onclick="closePhotoModal()"><i class="fas fa-times"></i></button>
+    </div>
+
+    <div class="modal-body">
+      <!-- Status & Quality Diagnostics in modal -->
+      <div id="mStatusRow" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding: 12px 16px; background: var(--bg0); border-radius: 12px; border: 1px solid var(--b0);">
+        <div>
+          <div style="font-size: 11px; font-weight: 700; color: var(--t2); text-transform: uppercase;">Biometric Status</div>
+          <div id="mStatusBadge" style="margin-top: 4px;"><span class="badge-not-trained"><i class="fas fa-clock"></i> Not Trained</span></div>
+        </div>
+        <div id="mQualityBadgeBox" style="text-align: right;">
+          <div style="font-size: 11px; font-weight: 700; color: var(--t2); text-transform: uppercase;">Dataset Quality</div>
+          <div id="mQualityText" style="font-size: 13px; font-weight: 700; color: var(--brand); margin-top: 4px;">Analyzing 4–5 photos...</div>
+        </div>
+      </div>
+
+      <!-- Training Metrics Box (Shown after training) -->
+      <div id="mMetricsBox" style="display: none; background: rgba(45, 168, 79, 0.06); border: 1px solid rgba(45, 168, 79, 0.25); border-radius: 12px; padding: 12px 16px; margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12.5px; font-weight: 700; color: var(--green); margin-bottom: 8px;">
+          <span><i class="fas fa-microchip"></i> Optimized YOLO Model Metrics</span>
+          <span id="mMetricStatus" class="badge bag">Optimal</span>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; font-size: 12px;">
+          <div>
+            <span style="color: var(--t2);">Biometric Vectors:</span>
+            <strong id="mMetricVectors" style="color: var(--t0); display: block;">--</strong>
+          </div>
+          <div>
+            <span style="color: var(--t2);">Intra-Consistency:</span>
+            <strong id="mMetricConsistency" style="color: var(--t0); display: block;">--</strong>
+          </div>
+          <div>
+            <span style="color: var(--t2);">Augmentations:</span>
+            <strong style="color: var(--t0); display: block;">CLAHE + Light + Flip</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- Drag and Drop Upload Zone -->
+      <div class="upload-dropzone" id="dropzone" onclick="document.getElementById('photoFileInput').click()">
+        <input type="file" id="photoFileInput" multiple accept="image/png, image/jpeg, image/jpg, image/webp" style="display: none;" onchange="handleFileSelect(this.files)">
+        <i class="fas fa-cloud-arrow-up" style="font-size: 36px; color: var(--brand-l); margin-bottom: 8px;"></i>
+        <div style="font-weight: 700; font-size: 14px; color: var(--t0); margin-bottom: 4px;">Click or Drag & Drop Photos Here (Recommended: 4–5 Photos)</div>
+        <div style="font-size: 12px; color: var(--t2);">Upload high-quality frontal face photos with good lighting. System automatically validates image suitability.</div>
+      </div>
+
+      <!-- Upload Progress Indicator -->
+      <div id="uploadProgressContainer" style="display: none; margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; margin-bottom: 4px;">
+          <span>Processing & validating photos...</span>
+          <span id="uploadProgressText">0%</span>
+        </div>
+        <div class="prog"><div class="prog-f" id="uploadProgressBar" style="width: 0%;"></div></div>
+      </div>
+
+      <!-- Existing Photos Gallery -->
+      <div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <div style="font-weight: 700; font-size: 13.5px; color: var(--t0);">
+            Training Dataset Photos (<span id="mGalleryCount">0</span>)
+          </div>
+          <div style="font-size: 11.5px; color: var(--t2);">Validated for blur, resolution & lighting</div>
+        </div>
+
+        <div class="gallery-grid" id="mGalleryGrid">
+          <!-- Dynamically populated via JS -->
+        </div>
+
+        <div id="mGalleryEmpty" style="text-align: center; padding: 30px; color: var(--t2); font-size: 13px; display: none;">
+          <i class="fas fa-image" style="font-size: 28px; margin-bottom: 8px; opacity: 0.5;"></i>
+          <div>No training photos uploaded for this student yet. Upload 4–5 clear photos for optimal recognition.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn bs" onclick="closePhotoModal()">Close</button>
+      <button class="btn bp" id="mTrainBtn" onclick="trainModalStudent()">
+        <i class="fas fa-bolt"></i> <span>Train Model (Optimized Pipeline)</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast Feedback Container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+let currentModalStudentId = null;
+
+// ==========================================
+// 1. DYNAMIC FILTERING & SEARCH
+// ==========================================
+function applyFilters() {
+  const query = document.getElementById('searchInput').value.trim().toLowerCase();
+  const dept = document.getElementById('deptFilter').value.trim();
+  const cls = document.getElementById('classFilter').value.trim();
+  const status = document.getElementById('statusFilter').value.trim();
+
+  const cards = document.querySelectorAll('.student-card');
+  let visibleCount = 0;
+
+  cards.forEach(card => {
+    const name = card.getAttribute('data-name') || '';
+    const code = card.getAttribute('data-code') || '';
+    const roll = card.getAttribute('data-roll') || '';
+    const cardDept = card.getAttribute('data-dept') || '';
+    const cardClass = card.getAttribute('data-class') || '';
+    const cardStatus = card.getAttribute('data-status') || '';
+
+    const matchesSearch = !query || name.includes(query) || code.includes(query) || roll.includes(query);
+    const matchesDept = !dept || cardDept === dept;
+    const matchesClass = !cls || cardClass === cls;
+    const matchesStatus = !status || cardStatus.toLowerCase() === status.toLowerCase();
+
+    if (matchesSearch && matchesDept && matchesClass && matchesStatus) {
+      card.style.display = 'flex';
+      visibleCount++;
+    } else {
+      card.style.display = 'none';
+    }
+  });
+
+  const countText = document.getElementById('resultCountText');
+  const noResults = document.getElementById('noResultsState');
+  const totalStudents = cards.length;
+
+  if (countText) {
+    countText.innerText = `Showing ${visibleCount} of ${totalStudents} students`;
+  }
+  if (noResults) {
+    noResults.style.display = (visibleCount === 0 && totalStudents > 0) ? 'block' : 'none';
+  }
+}
+
+function resetFilters() {
+  document.getElementById('searchInput').value = '';
+  document.getElementById('deptFilter').value = '';
+  document.getElementById('classFilter').value = '';
+  document.getElementById('statusFilter').value = '';
+  applyFilters();
+}
+
+
+// ==========================================
+// 2. TOAST NOTIFICATIONS
+// ==========================================
+function showToast(message, type = 'success') {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  
+  const icon = type === 'success' ? 'fa-check-circle' : (type === 'error' ? 'fa-circle-xmark' : 'fa-circle-info');
+  const iconColor = type === 'success' ? 'var(--green)' : (type === 'error' ? 'var(--red)' : 'var(--brand-l)');
+  
+  toast.innerHTML = `
+    <i class="fas ${icon}" style="color: ${iconColor}; font-size: 18px;"></i>
+    <div style="flex: 1; font-size: 13px; font-weight: 500;">${message}</div>
+    <i class="fas fa-times" style="color: var(--t2); cursor: pointer; font-size: 12px;" onclick="this.parentElement.remove()"></i>
+  `;
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    toast.style.transition = 'opacity 0.3s, transform 0.3s';
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateY(-10px)';
+    setTimeout(() => toast.remove(), 300);
+  }, 4500);
+}
+
+
+// ==========================================
+// 3. PHOTO MANAGEMENT & VALIDATION MODAL
+// ==========================================
+async function openPhotoModal(studentId) {
+  currentModalStudentId = studentId;
+  const modal = document.getElementById('photoModal');
+  modal.classList.add('open');
+
+  document.getElementById('mMetricsBox').style.display = 'none';
+  await refreshModalGallery(studentId);
+}
+
+function closePhotoModal() {
+  const modal = document.getElementById('photoModal');
+  modal.classList.remove('open');
+  currentModalStudentId = null;
+  document.getElementById('photoFileInput').value = '';
+  document.getElementById('uploadProgressContainer').style.display = 'none';
+  document.getElementById('mMetricsBox').style.display = 'none';
+}
+
+async function refreshModalGallery(studentId) {
+  try {
+    const [resImages, resValidation] = await Promise.all([
+      fetch(`/admin/student-training/student/${studentId}/images`),
+      fetch(`/admin/student-training/student/${studentId}/validate-images`)
+    ]);
+
+    if (!resImages.ok) throw new Error('Failed to load photos');
+    const data = await resImages.json();
+    const valData = resValidation.ok ? await resValidation.json() : null;
+
+    document.getElementById('mStudentName').innerText = data.student_name;
+    document.getElementById('mStudentMeta').innerText = `ID: ${data.student_code} | Roll: ${data.roll_number} | Class: ${data.class_name}`;
+    document.getElementById('mGalleryCount').innerText = data.photo_count;
+    
+    // Update status in modal
+    const stBadge = document.getElementById('mStatusBadge');
+    if (data.training_status === 'Trained') {
+      stBadge.innerHTML = '<span class="badge-trained"><i class="fas fa-check-circle"></i> Trained</span>';
+    } else if (data.training_status === 'Training') {
+      stBadge.innerHTML = '<span class="badge-training"><i class="fas fa-spinner fa-spin"></i> Training</span>';
+    } else {
+      stBadge.innerHTML = '<span class="badge-not-trained"><i class="fas fa-clock"></i> Not Trained</span>';
+    }
+
+    // Dataset Quality Summary
+    const qualityEl = document.getElementById('mQualityText');
+    if (valData && valData.reports && valData.reports.length > 0) {
+      const avgScore = Math.round(valData.reports.reduce((acc, r) => acc + (r.quality_score || 70), 0) / valData.reports.length);
+      const isOptimal = valData.overall_valid && valData.reports.length >= 3;
+      qualityEl.innerHTML = `<span style="color: ${isOptimal ? 'var(--green)' : '#D97706'};">${isOptimal ? 'Optimal' : 'Good'} (${avgScore}% Quality, ${valData.reports.length} Photos)</span>`;
+    } else {
+      qualityEl.innerText = 'Upload 4–5 photos';
+    }
+
+    const grid = document.getElementById('mGalleryGrid');
+    const emptyState = document.getElementById('mGalleryEmpty');
+    grid.innerHTML = '';
+
+    const validationMap = {};
+    if (valData && valData.reports) {
+      valData.reports.forEach(r => { validationMap[r.image_id] = r; });
+    }
+
+    if (data.images && data.images.length > 0) {
+      emptyState.style.display = 'none';
+      data.images.forEach(img => {
+        const item = document.createElement('div');
+        item.className = 'gallery-item';
+        item.id = `gallery-item-${img.id}`;
+        
+        const valInfo = validationMap[img.id] || {};
+        const qScore = valInfo.quality_score || 85;
+        const issues = valInfo.issues && valInfo.issues.length > 0 ? valInfo.issues.join(', ') : 'Verified clear face';
+
+        item.innerHTML = `
+          <img src="${img.url}" class="gallery-thumb" alt="Training photo" title="${issues}" loading="lazy">
+          <div style="position: absolute; bottom: 4px; left: 4px; background: rgba(0,0,0,0.65); color: #fff; font-size: 10px; font-weight: 600; padding: 2px 5px; border-radius: 4px;">
+            ${qScore}%
+          </div>
+          <button class="gallery-del-btn" onclick="deletePhoto(${studentId}, ${img.id})" title="Delete photo">
+            <i class="fas fa-trash"></i>
+          </button>
+        `;
+        grid.appendChild(item);
+      });
+    } else {
+      emptyState.style.display = 'block';
+    }
+  } catch (err) {
+    showToast(`Error loading images: ${err.message}`, 'error');
+  }
+}
+
+// Drag & drop handlers
+const dropzone = document.getElementById('dropzone');
+['dragenter', 'dragover'].forEach(eventName => {
+  dropzone.addEventListener(eventName, (e) => {
+    e.preventDefault();
+    dropzone.classList.add('dragover');
+  });
+});
+['dragleave', 'drop'].forEach(eventName => {
+  dropzone.addEventListener(eventName, (e) => {
+    e.preventDefault();
+    dropzone.classList.remove('dragover');
+  });
+});
+dropzone.addEventListener('drop', (e) => {
+  const dt = e.dataTransfer;
+  const files = dt.files;
+  if (files && files.length > 0) {
+    handleFileSelect(files);
+  }
+});
+
+async function handleFileSelect(files) {
+  if (!files || files.length === 0 || !currentModalStudentId) return;
+
+  const formData = new FormData();
+  for (let i = 0; i < files.length; i++) {
+    formData.append('photos', files[i]);
+  }
+
+  const progContainer = document.getElementById('uploadProgressContainer');
+  const progBar = document.getElementById('uploadProgressBar');
+  const progText = document.getElementById('uploadProgressText');
+  progContainer.style.display = 'block';
+  progBar.style.width = '30%';
+  progText.innerText = 'Validating & Uploading...';
+
+  try {
+    progBar.style.width = '70%';
+    const res = await fetch(`/admin/student-training/student/${currentModalStudentId}/upload`, {
+      method: 'POST',
+      body: formData
+    });
+    const result = await res.json();
+
+    progBar.style.width = '100%';
+    progText.innerText = '100%';
+
+    if (res.ok && result.success) {
+      showToast(result.message, 'success');
+      await refreshModalGallery(currentModalStudentId);
+      updateCardUI(currentModalStudentId, result.photo_count, result.training_status, result.has_embeddings);
+      updateTotalStats();
+    } else {
+      showToast(result.message || 'Upload failed', 'error');
+    }
+  } catch (err) {
+    showToast(`Upload error: ${err.message}`, 'error');
+  } finally {
+    setTimeout(() => {
+      progContainer.style.display = 'none';
+      progBar.style.width = '0%';
+    }, 800);
+  }
+}
+
+async function deletePhoto(studentId, imageId) {
+  if (!confirm('Are you sure you want to delete this training photo?')) return;
+
+  try {
+    const res = await fetch(`/admin/student-training/student/${studentId}/delete-image/${imageId}`, {
+      method: 'POST'
+    });
+    const result = await res.json();
+    if (res.ok && result.success) {
+      showToast('Photo deleted successfully', 'info');
+      await refreshModalGallery(studentId);
+      updateCardUI(studentId, result.remaining_count, result.training_status, result.has_embeddings);
+      updateTotalStats();
+    } else {
+      showToast(result.message || 'Could not delete photo', 'error');
+    }
+  } catch (err) {
+    showToast(`Error deleting photo: ${err.message}`, 'error');
+  }
+}
+
+
+// ==========================================
+// 4. INDIVIDUAL STUDENT TRAINING (OPTIMIZED YOLO)
+// ==========================================
+async function trainSingleStudent(studentId, studentName) {
+  const btn = document.getElementById(`trainBtn-${studentId}`);
+  const card = document.getElementById(`student-card-${studentId}`);
+  const badgeContainer = document.getElementById(`status-badge-container-${studentId}`);
+
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Optimizing...</span>';
+  }
+  if (badgeContainer) {
+    badgeContainer.innerHTML = '<span class="badge-training"><i class="fas fa-spinner fa-spin"></i> Training</span>';
+  }
+  if (card) {
+    card.setAttribute('data-status', 'Training');
+  }
+
+  try {
+    const res = await fetch(`/admin/student-training/student/${studentId}/train`, {
+      method: 'POST'
+    });
+    const result = await res.json();
+
+    if (res.ok && result.success) {
+      showToast(result.message, 'success');
+      updateCardUI(studentId, result.photo_count, result.status, result.has_embeddings);
+      updateTotalStats();
+
+      // If modal is currently open for this student, display genuine metrics
+      if (currentModalStudentId === studentId && result.metrics) {
+        document.getElementById('mMetricsBox').style.display = 'block';
+        document.getElementById('mMetricVectors').innerText = `${result.metrics.embedding_count} vectors (${result.metrics.raw_generated} augmented)`;
+        document.getElementById('mMetricConsistency').innerText = `${Math.round(result.metrics.intra_consistency * 100)}%`;
+        document.getElementById('mMetricStatus').innerText = result.metrics.quality_status || 'Optimal';
+      }
+    } else {
+      showToast(result.message || 'Training failed.', 'error');
+      updateCardUI(studentId, null, result.status || 'Not Trained', result.has_embeddings || false);
+    }
+  } catch (err) {
+    showToast(`Training error: ${err.message}`, 'error');
+    updateCardUI(studentId, null, 'Not Trained', false);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-bolt"></i> <span>Train Student</span>';
+    }
+  }
+}
+
+async function trainModalStudent() {
+  if (!currentModalStudentId) return;
+  const mBtn = document.getElementById('mTrainBtn');
+  if (mBtn) {
+    mBtn.disabled = true;
+    mBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Training...</span>';
+  }
+  await trainSingleStudent(currentModalStudentId);
+  await refreshModalGallery(currentModalStudentId);
+  if (mBtn) {
+    mBtn.disabled = false;
+    mBtn.innerHTML = '<i class="fas fa-bolt"></i> <span>Train Model (Optimized Pipeline)</span>';
+  }
+}
+
+
+// ==========================================
+// 5. BULK TRAINING (TRAIN ALL STUDENTS)
+// ==========================================
+async function trainAllStudents() {
+  if (!confirm('Start optimized YOLO training for all students with uploaded training photos?')) return;
+
+  const btn = document.getElementById('trainAllBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Optimizing All Students...</span>';
+
+  showToast('YOLO training process initiated across all students...', 'info');
+
+  try {
+    const res = await fetch('/admin/student-training/train-all', {
+      method: 'POST'
+    });
+    const result = await res.json();
+
+    if (res.ok && result.success) {
+      showToast(result.message, 'success');
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+    } else {
+      showToast(result.message || 'Bulk training encountered issues.', 'error');
+    }
+  } catch (err) {
+    showToast(`Batch training error: ${err.message}`, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-bolt"></i> <span>Train All Students</span>';
+  }
+}
+
+
+// ==========================================
+// 6. UI UPDATE HELPERS
+// ==========================================
+function updateCardUI(studentId, photoCount, status, hasEmbeddings) {
+  const card = document.getElementById(`student-card-${studentId}`);
+  if (!card) return;
+
+  if (status) {
+    card.setAttribute('data-status', status);
+    const badgeContainer = document.getElementById(`status-badge-container-${studentId}`);
+    if (badgeContainer) {
+      if (status === 'Trained') {
+        badgeContainer.innerHTML = '<span class="badge-trained"><i class="fas fa-check-circle"></i> Trained</span>';
+      } else if (status === 'Training') {
+        badgeContainer.innerHTML = '<span class="badge-training"><i class="fas fa-spinner fa-spin"></i> Training</span>';
+      } else {
+        badgeContainer.innerHTML = '<span class="badge-not-trained"><i class="fas fa-clock"></i> Not Trained</span>';
+      }
+    }
+  }
+
+  // Update Embedding Status Pill
+  if (hasEmbeddings !== null && hasEmbeddings !== undefined) {
+    const embStatusEl = document.getElementById(`card-embedding-status-${studentId}`);
+    if (embStatusEl) {
+      if (hasEmbeddings) {
+        embStatusEl.innerHTML = '<span style="color: var(--green); font-weight: 600;"><i class="fas fa-vector-square"></i> Model Encoded</span>';
+      } else {
+        embStatusEl.innerHTML = '<span style="color: var(--gold); font-weight: 600;"><i class="fas fa-circle-exclamation"></i> No Embeddings</span>';
+      }
+    }
+  }
+
+  if (photoCount !== null && photoCount !== undefined) {
+    const countEl = document.getElementById(`card-photo-count-${studentId}`);
+    if (countEl) {
+      countEl.innerHTML = `<i class="fas fa-camera"></i> <span class="num">${photoCount}</span> Photos`;
+    }
+  }
+
+  // Refresh avatar image if new photo uploaded
+  const avatarImg = document.getElementById(`avatar-img-${studentId}`);
+  if (avatarImg) {
+    avatarImg.src = `/admin/student-training/student/${studentId}/avatar?t=${new Date().getTime()}`;
+  }
+}
+
+function updateTotalStats() {
+  const cards = document.querySelectorAll('.student-card');
+  let trained = 0;
+  let notTrained = 0;
+  let totalPhotos = 0;
+
+  cards.forEach(c => {
+    const st = c.getAttribute('data-status');
+    if (st === 'Trained') trained++;
+    else notTrained++;
+
+    const numEl = c.querySelector('.photo-count-pill .num');
+    if (numEl) {
+      totalPhotos += parseInt(numEl.innerText) || 0;
+    }
+  });
+
+  const statTrained = document.getElementById('statTrainedStudents');
+  const statNotTrained = document.getElementById('statNotTrainedStudents');
+  const statPhotos = document.getElementById('statTotalPhotos');
+
+  if (statTrained) statTrained.innerText = trained;
+  if (statNotTrained) statNotTrained.innerText = notTrained;
+  if (statPhotos) statPhotos.innerText = totalPhotos;
+}
+</script>
+{% endblock %}
+

@@ -187,6 +187,7 @@ tr:last-child td{border-bottom:none}tr:hover td{background:rgba(91,45,142,.04);c
     {% if current_user.role == 'admin' %}
     <a href="{{ url_for('admin.dashboard') }}" class="nav-item {% if request.endpoint == 'admin.dashboard' %}active{% endif %}"><i class="fas fa-border-all"></i> <span>Dashboard</span></a>
     <a href="{{ url_for('admin.student_registration') }}" class="nav-item {% if request.endpoint == 'admin.student_registration' %}active{% endif %}"><i class="fas fa-id-card"></i> <span>Student Registration</span></a>
+    <a href="{{ url_for('admin.student_training') }}" class="nav-item {% if request.endpoint == 'admin.student_training' %}active{% endif %}"><i class="fas fa-brain"></i> <span>Student Training</span></a>
     <a href="{{ url_for('admin.analytics') }}" class="nav-item {% if request.endpoint == 'admin.analytics' %}active{% endif %}"><i class="fas fa-chart-column"></i> <span>Analytics</span></a>
     <a href="{{ url_for('admin.staff_log') }}" class="nav-item {% if request.endpoint == 'admin.staff_log' %}active{% endif %}">
   <i class="fas fa-users-viewfinder" style="width:20px;text-align:center"></i> <span>Staff Log</span>

@@ -136,21 +136,88 @@ class Student(db.Model):
     address = db.Column(db.String(250))  # Full address field (City, State)
     face_encoding = db.Column(db.Text)  # JSON list of embeddings
     photo_count = db.Column(db.Integer, default=0)
+    training_status = db.Column(db.String(30), default='Not Trained')  # 'Not Trained', 'Training', 'Trained'
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     attendance_records = db.relationship('AttendanceRecord', backref='student', lazy=True, cascade="all, delete-orphan")
+    training_images = db.relationship('StudentTrainingImage', backref='student', lazy=True, cascade="all, delete-orphan")
 
     def set_encoding(self, encodings_list):
-        self.face_encoding = json.dumps(encodings_list)
+        """Cleanly serialize a list of biometric embedding vectors into JSON string."""
+        if not encodings_list:
+            self.face_encoding = None
+            return
+
+        clean_list = []
+        for vec in encodings_list:
+            if hasattr(vec, 'tolist'):
+                clean_list.append([float(x) for x in vec.tolist()])
+            elif isinstance(vec, (list, tuple)):
+                clean_list.append([float(x) for x in vec])
+            else:
+                clean_list.append(vec)
+        self.face_encoding = json.dumps(clean_list)
 
     def get_encoding(self):
-        if self.face_encoding:
-            return json.loads(self.face_encoding)
-        return []
+        """Safely deserialize face encodings JSON from database into Python list."""
+        if not self.face_encoding:
+            return []
+        try:
+            data = json.loads(self.face_encoding)
+            if isinstance(data, list):
+                return data
+            return []
+        except Exception as e:
+            print(f"[WARN] Error decoding face_encoding for student {self.id}: {e}")
+            return []
+
+    @property
+    def has_embeddings(self):
+        """Check if student actually has valid biometric face vectors stored."""
+        enc = self.get_encoding()
+        return bool(enc and len(enc) > 0)
 
     @property
     def has_face_data(self):
-        return self.photo_count > 0
+        """Alias for has_embeddings to ensure backward compatibility."""
+        return self.has_embeddings
+
+    @property
+    def status_label(self):
+        """Return canonical training status based on actual stored embeddings."""
+        if self.has_embeddings:
+            return 'Trained'
+        if self.training_status == 'Training':
+            return 'Training'
+        return 'Not Trained'
+
+    @property
+    def department_name(self):
+        if self.class_ref and self.class_ref.department:
+            return self.class_ref.department.name
+        return self.branch or 'General'
+
+    @property
+    def class_name(self):
+        if self.class_ref:
+            return self.class_ref.full_name
+        return 'Unassigned'
+
+    @property
+    def image_count(self):
+        if self.training_images:
+            return len(self.training_images)
+        return self.photo_count or 0
+
+
+class StudentTrainingImage(db.Model):
+    __tablename__ = 'student_training_images'
+    id = db.Column(db.Integer, primary_key=True)
+    student_id = db.Column(db.Integer, db.ForeignKey('students.id', ondelete='CASCADE'), nullable=False)
+    filename = db.Column(db.String(255), nullable=False)
+    filepath = db.Column(db.String(500), nullable=False)
+    uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
+
 
 
 class PendingStudent(db.Model):

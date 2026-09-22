@@ -1,10 +1,13 @@
-from flask import Blueprint, render_template, redirect, url_for, request, flash, jsonify
+from flask import Blueprint, render_template, redirect, url_for, request, flash, jsonify, send_file
 from flask_login import login_required, current_user
 from functools import wraps
 from extensions import db
-from models import User, Department, Class, Subject, Student, AttendanceRecord, ApprovalRequest, PendingStudent, generate_registration_and_roll_number
+from models import User, Department, Class, Subject, Student, StudentTrainingImage, AttendanceRecord, ApprovalRequest, PendingStudent, AuditLog, generate_registration_and_roll_number
 from datetime import datetime, date, timedelta
-import csv, io, json
+from werkzeug.utils import secure_filename
+import csv, io, json, os, uuid
+from config import Config
+
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -481,7 +484,7 @@ def verify_student(id):
     db.session.commit()
 
     flash(f'✅ Student {pending.name} verified! Reg No: {reg_number} | Roll No: {roll_number} | Default Password: password123', 'success')
-    return redirect(url_for('admin.student_registration', tab='verified'))
+    return redirect(url_for('admin.student_registration', tab='pending'))
 
 @admin_bp.route('/student-registration/reject/<int:id>', methods=['POST'])
 @login_required
@@ -723,4 +726,401 @@ def audit_logs():
     from models import AuditLog
     logs = AuditLog.query.order_by(AuditLog.timestamp.desc()).limit(100).all()
     return render_template('admin/audit_logs.html', logs=logs)
+
+
+# =====================================================================
+# STUDENT TRAINING MODULE ROUTES
+# =====================================================================
+
+@admin_bp.route('/student-training')
+@login_required
+@admin_required
+def student_training():
+    """Main Student Training page displaying student cards, stats, and dynamic filters."""
+    students = Student.query.order_by(Student.name.asc()).all()
+    departments = Department.query.order_by(Department.name.asc()).all()
+    classes = Class.query.order_by(Class.name.asc()).all()
+
+    # Dynamic metrics from DB
+    total_students = len(students)
+    trained_students = len([s for s in students if s.status_label == 'Trained'])
+    not_trained_students = total_students - trained_students
+    total_photos = sum(s.image_count for s in students)
+
+    # Collect dynamic unique department names and class names from students & records
+    dept_names = sorted(list(set(d.name for d in departments if d.name) | set(s.department_name for s in students if s.department_name)))
+    class_names = sorted(list(set(c.full_name for c in classes if c.full_name) | set(s.class_name for s in students if s.class_name)))
+
+    return render_template('admin/student_training.html',
+        students=students,
+        departments=departments,
+        classes=classes,
+        dept_names=dept_names,
+        class_names=class_names,
+        total_students=total_students,
+        trained_students=trained_students,
+        not_trained_students=not_trained_students,
+        total_photos=total_photos
+    )
+
+
+@admin_bp.route('/student-training/student/<int:student_id>/images')
+@login_required
+@admin_required
+def get_student_training_images(student_id):
+    """Fetch all uploaded training photos for a specific student."""
+    student = Student.query.get_or_404(student_id)
+    images = StudentTrainingImage.query.filter_by(student_id=student.id).order_by(StudentTrainingImage.uploaded_at.desc()).all()
+
+    return jsonify({
+        'student_id': student.id,
+        'student_name': student.name,
+        'student_code': student.student_id or student.registration_number or f'STU{student.id:04d}',
+        'roll_number': student.roll_number or '-',
+        'department': student.department_name,
+        'class_name': student.class_name,
+        'training_status': student.status_label,
+        'has_embeddings': student.has_embeddings,
+        'embedding_count': len(student.get_encoding()),
+        'photo_count': len(images),
+        'images': [{
+            'id': img.id,
+            'filename': img.filename,
+            'url': url_for('admin.get_training_photo', image_id=img.id),
+            'uploaded_at': img.uploaded_at.strftime('%d %b %Y, %H:%M')
+        } for img in images]
+    })
+
+
+@admin_bp.route('/student-training/student/<int:student_id>/upload', methods=['POST'])
+@login_required
+@admin_required
+def upload_student_training_images(student_id):
+    """Handle multi-photo upload for an individual student."""
+    student = Student.query.get_or_404(student_id)
+    files = request.files.getlist('photos')
+
+    if not files or len(files) == 0:
+        return jsonify({'success': False, 'message': 'No photo files were provided.'}), 400
+
+    upload_dir = os.path.join(Config.UPLOAD_FOLDER, 'training_images', f'student_{student.id}')
+    os.makedirs(upload_dir, exist_ok=True)
+
+    allowed_exts = {'png', 'jpg', 'jpeg', 'webp'}
+    saved_count = 0
+    new_images = []
+
+    for f in files:
+        if not f or not f.filename:
+            continue
+        ext = f.filename.rsplit('.', 1)[-1].lower() if '.' in f.filename else ''
+        if ext not in allowed_exts:
+            continue
+
+        safe_orig = secure_filename(f.filename) or 'photo'
+        unique_name = f"{uuid.uuid4().hex[:8]}_{safe_orig}"
+        file_path = os.path.join(upload_dir, unique_name)
+        f.save(file_path)
+
+        train_img = StudentTrainingImage(
+            student_id=student.id,
+            filename=unique_name,
+            filepath=file_path
+        )
+        db.session.add(train_img)
+        db.session.flush()
+
+        saved_count += 1
+        new_images.append({
+            'id': train_img.id,
+            'filename': train_img.filename,
+            'url': url_for('admin.get_training_photo', image_id=train_img.id),
+            'uploaded_at': train_img.uploaded_at.strftime('%d %b %Y, %H:%M')
+        })
+
+    # Update student photo count
+    total_imgs = StudentTrainingImage.query.filter_by(student_id=student.id).count()
+    student.photo_count = total_imgs
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'message': f'Successfully uploaded {saved_count} photo(s) for {student.name}.',
+        'saved_count': saved_count,
+        'photo_count': total_imgs,
+        'training_status': student.status_label,
+        'has_embeddings': student.has_embeddings,
+        'new_images': new_images
+    })
+
+
+@admin_bp.route('/student-training/student/<int:student_id>/delete-image/<int:image_id>', methods=['POST'])
+@login_required
+@admin_required
+def delete_student_training_image(student_id, image_id):
+    """Delete a specific training photo for a student."""
+    student = Student.query.get_or_404(student_id)
+    image = StudentTrainingImage.query.filter_by(id=image_id, student_id=student.id).first_or_404()
+
+    # Remove file from disk
+    if os.path.exists(image.filepath):
+        try:
+            os.remove(image.filepath)
+        except Exception as e:
+            print(f"[WARN] Could not remove photo file {image.filepath}: {e}")
+
+    db.session.delete(image)
+    db.session.commit()
+
+    remaining_count = StudentTrainingImage.query.filter_by(student_id=student.id).count()
+    student.photo_count = remaining_count
+
+    # If no photos remain, reset training status and face encoding
+    if remaining_count == 0:
+        student.training_status = 'Not Trained'
+        student.face_encoding = None
+
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'message': f'Photo deleted successfully.',
+        'remaining_count': remaining_count,
+        'training_status': student.status_label,
+        'has_embeddings': student.has_embeddings
+    })
+
+
+@admin_bp.route('/student-training/student/<int:student_id>/train', methods=['POST'])
+@login_required
+@admin_required
+def train_student(student_id):
+    """
+    Optimized YOLO-based student face training:
+    - Preprocesses and validates 4-5 uploaded images.
+    - Generates realistic classroom augmentations (mirroring, CLAHE, illumination).
+    - Extracts L2 normalized DeepFace FaceNet embeddings.
+    - Suppresses duplicate vectors to optimize memory & inference speed.
+    - Persists embeddings against the student in the database.
+    - Returns real measured training quality and consistency metrics.
+    """
+    student = Student.query.get_or_404(student_id)
+    images = StudentTrainingImage.query.filter_by(student_id=student.id).all()
+
+    if not images:
+        return jsonify({
+            'success': False,
+            'message': f'No training photos found for {student.name}. Please upload 4–5 photos first.',
+            'status': student.status_label,
+            'has_embeddings': student.has_embeddings
+        }), 400
+
+    image_paths = [img.filepath for img in images if os.path.exists(img.filepath)]
+    if not image_paths:
+        student.training_status = 'Not Trained'
+        student.face_encoding = None
+        db.session.commit()
+        return jsonify({
+            'success': False,
+            'message': 'Uploaded image files are missing from storage. Please re-upload.',
+            'status': 'Not Trained',
+            'has_embeddings': False
+        }), 400
+
+    student.training_status = 'Training'
+    db.session.commit()
+
+    print(f"[YOLO-TRAIN] Starting training for Student ID {student.id} ({student.name}). Image count: {len(image_paths)}")
+
+    try:
+        from ai.detector import train_student_biometrics
+        train_result = train_student_biometrics(image_paths, max_embeddings=10)
+
+        if train_result.get('success') and len(train_result.get('embeddings', [])) > 0:
+            embeddings = train_result['embeddings']
+            metrics = train_result.get('metrics', {})
+
+            print(f"[YOLO-TRAIN] Generated {len(embeddings)} biometric embeddings for Student ID {student.id}. Persisting to DB...")
+
+            student.set_encoding(embeddings)
+            student.photo_count = len(image_paths)
+            student.training_status = 'Trained'
+
+            db.session.commit()
+            db.session.refresh(student)
+
+            # Verification: ensure embeddings actually stored and retrievable
+            stored_enc = student.get_encoding()
+            if not stored_enc or len(stored_enc) == 0:
+                raise ValueError("Database verification failed: face_encoding column is empty after commit.")
+
+            print(f"[YOLO-TRAIN-SUCCESS] Student ID {student.id} successfully trained! Persisted {len(stored_enc)} embeddings. has_embeddings={student.has_embeddings}")
+
+            db.session.add(AuditLog(
+                user_id=current_user.id,
+                username=current_user.username,
+                action='YOLO_OPTIMIZED_TRAIN_STUDENT',
+                description=(
+                    f'Trained optimized YOLO model for {student.name} ({student.student_id}). '
+                    f'Images: {len(image_paths)} | Vectors: {len(embeddings)} | '
+                    f'Intra-Consistency: {metrics.get("intra_consistency", 0.0)} | '
+                    f'Status: {metrics.get("quality_status", "Optimal")}'
+                )
+            ))
+            db.session.commit()
+
+            return jsonify({
+                'success': True,
+                'message': f'✅ Successfully trained {student.name}! Extracted {len(embeddings)} optimized biometric embeddings from {len(image_paths)} photos.',
+                'status': 'Trained',
+                'has_embeddings': True,
+                'embedding_count': len(embeddings),
+                'photo_count': len(image_paths),
+                'metrics': metrics,
+                'validation_reports': train_result.get('validation_reports', [])
+            })
+        else:
+            student.training_status = 'Not Trained'
+            student.face_encoding = None
+            db.session.commit()
+            print(f"[YOLO-TRAIN-WARN] No valid face biometrics extracted for Student ID {student.id}")
+            return jsonify({
+                'success': False,
+                'message': f'Could not extract valid face biometrics from {student.name}\'s photos. Please ensure clear frontal face photos.',
+                'status': 'Not Trained',
+                'has_embeddings': False,
+                'embedding_count': 0,
+                'validation_reports': train_result.get('validation_reports', [])
+            }), 400
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        student.training_status = 'Not Trained'
+        student.face_encoding = None
+        db.session.commit()
+        return jsonify({'success': False, 'message': f'Training error: {str(e)}', 'status': 'Not Trained', 'has_embeddings': False}), 500
+
+
+@admin_bp.route('/student-training/train-all', methods=['POST'])
+@login_required
+@admin_required
+def train_all_students():
+    """
+    Batch train all students who have uploaded training images using the optimized pipeline.
+    """
+    students = Student.query.all()
+    if not students:
+        return jsonify({'success': False, 'message': 'No students found in the database to train.'}), 400
+
+    from ai.detector import train_student_biometrics
+
+    trained_count = 0
+    skipped_no_photos = 0
+    failed_detection = 0
+    total_vectors = 0
+
+    print(f"[YOLO-BATCH-TRAIN] Starting batch training across {len(students)} students...")
+
+    for student in students:
+        images = StudentTrainingImage.query.filter_by(student_id=student.id).all()
+        image_paths = [img.filepath for img in images if os.path.exists(img.filepath)]
+
+        if not image_paths:
+            skipped_no_photos += 1
+            continue
+
+        try:
+            train_res = train_student_biometrics(image_paths, max_embeddings=10)
+            if train_res.get('success') and len(train_res.get('embeddings', [])) > 0:
+                embeddings = train_res['embeddings']
+                student.set_encoding(embeddings)
+                student.photo_count = len(image_paths)
+                student.training_status = 'Trained'
+                trained_count += 1
+                total_vectors += len(embeddings)
+                print(f"  [OK] Trained student {student.id} ({student.name}): {len(embeddings)} vectors")
+            else:
+                student.training_status = 'Not Trained'
+                student.face_encoding = None
+                failed_detection += 1
+                print(f"  [FAIL] Could not extract faces for student {student.id} ({student.name})")
+        except Exception as e:
+            print(f"  [ERR] Error batch training student {student.id} ({student.name}): {e}")
+            student.training_status = 'Not Trained'
+            student.face_encoding = None
+            failed_detection += 1
+
+    db.session.commit()
+
+    db.session.add(AuditLog(
+        user_id=current_user.id,
+        username=current_user.username,
+        action='YOLO_BATCH_TRAIN_ALL_STUDENTS',
+        description=f'Batch YOLO training: {trained_count} trained ({total_vectors} total biometric vectors), {skipped_no_photos} skipped without photos, {failed_detection} failed.'
+    ))
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'message': f'Batch training completed! {trained_count} student(s) successfully trained ({total_vectors} total optimized biometric vectors generated).',
+        'trained_count': trained_count,
+        'skipped_count': skipped_no_photos,
+        'failed_count': failed_detection,
+        'total_vectors': total_vectors
+    })
+
+
+
+@admin_bp.route('/student-training/student/<int:student_id>/validate-images')
+@login_required
+@admin_required
+def validate_student_images(student_id):
+    """Validate uploaded images of a student for blur, lighting, resolution."""
+    student = Student.query.get_or_404(student_id)
+    images = StudentTrainingImage.query.filter_by(student_id=student.id).all()
+
+    from ai.detector import validate_image_quality
+
+    reports = []
+    for img in images:
+        if os.path.exists(img.filepath):
+            report = validate_image_quality(img.filepath)
+            report['image_id'] = img.id
+            report['filename'] = img.filename
+            report['url'] = url_for('admin.get_training_photo', image_id=img.id)
+            reports.append(report)
+
+    overall_valid = all(r.get('is_valid', False) for r in reports) if reports else False
+    return jsonify({
+        'student_id': student.id,
+        'student_name': student.name,
+        'total_images': len(reports),
+        'overall_valid': overall_valid,
+        'reports': reports
+    })
+
+
+
+@admin_bp.route('/student-training/photo/<int:image_id>')
+@login_required
+@admin_required
+def get_training_photo(image_id):
+    """Serve a specific training photo image file."""
+    image = StudentTrainingImage.query.get_or_404(image_id)
+    if not os.path.exists(image.filepath):
+        return jsonify({'error': 'Image file not found on disk'}), 404
+    return send_file(image.filepath)
+
+
+@admin_bp.route('/student-training/student/<int:student_id>/avatar')
+@login_required
+def get_student_avatar(student_id):
+    """Serve a student's latest training photo as their avatar, or fallback to ui-avatars."""
+    student = Student.query.get_or_404(student_id)
+    latest_img = StudentTrainingImage.query.filter_by(student_id=student.id).order_by(StudentTrainingImage.uploaded_at.desc()).first()
+    if latest_img and os.path.exists(latest_img.filepath):
+        return send_file(latest_img.filepath)
+    return redirect(f"https://ui-avatars.com/api/?name={student.name}&background=0F204C&color=fff&size=128")
+
 
