@@ -186,7 +186,10 @@ tr:last-child td{border-bottom:none}tr:hover td{background:rgba(91,45,142,.04);c
   <nav class="s-nav">
     {% if current_user.role == 'admin' %}
     <a href="{{ url_for('admin.dashboard') }}" class="nav-item {% if request.endpoint == 'admin.dashboard' %}active{% endif %}"><i class="fas fa-border-all"></i> <span>Dashboard</span></a>
-    <a href="{{ url_for('admin.student_registration') }}" class="nav-item {% if request.endpoint == 'admin.student_registration' %}active{% endif %}"><i class="fas fa-id-card"></i> <span>Student Registration</span></a>
+    <a href="{{ url_for('admin.student_registration') }}" class="nav-item {% if request.endpoint == 'admin.student_registration' %}active{% endif %}">
+      <i class="fas fa-id-card"></i> <span>Student Registration</span>
+      {%- set psc = pending_students_count|default(0) %}{% if psc > 0 %}<span class="n-badge" style="background:#E67E22; color:#fff; font-size:10px; padding:2px 7px; border-radius:10px; margin-left:auto; font-weight:700;">{{psc}}</span>{% endif %}
+    </a>
     <a href="{{ url_for('admin.analytics') }}" class="nav-item {% if request.endpoint == 'admin.analytics' %}active{% endif %}"><i class="fas fa-chart-column"></i> <span>Analytics</span></a>
     <a href="{{ url_for('admin.staff_log') }}" class="nav-item {% if request.endpoint == 'admin.staff_log' %}active{% endif %}">
   <i class="fas fa-users-viewfinder" style="width:20px;text-align:center"></i> <span>Staff Log</span>
