@@ -1,6 +1,12 @@
+# OS & Environment
 .DS_Store
 .env
 venv/
 .venv/
 __pycache__/
 *.pyc
+
+# User Data & Student Photos
+uploads/
+instance/
+*.db
