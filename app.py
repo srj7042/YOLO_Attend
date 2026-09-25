@@ -97,7 +97,7 @@ def seed_demo_data():
 
     # 2. Seed Master Admin
     admin = User(
-        username='utkarshyadav29',
+        username='admin',
         name='Admin User',
         role='admin',
         email='admin@smartattend.edu',
@@ -105,7 +105,7 @@ def seed_demo_data():
         employee_id='ADM001',
         is_active_account=True
     )
-    admin.set_password('Rgi@best')
+    admin.set_password('admin')
     db.session.add(admin)
 
     # 3. Seed Demo Department, Class, Subject, Student

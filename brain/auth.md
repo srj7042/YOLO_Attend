@@ -7,7 +7,7 @@ SmartAttend relies on **Flask-Login** for session management and standard **Werk
 ## User Roles & Credentials
 
 1. **Admin (`role='admin'`)**
-   - Initialized via master seed in `app.py:seed_demo_data()` (`username='utkarshyadav29'`, `password='Rgi@best'`).
+   - Initialized via master seed in `app.py:seed_demo_data()` (`username='admin'`, `password='admin'`).
    - Access to full system settings, department/class/subject deletion, teacher account approval, access request review, and global analytics.
 2. **Teacher (`role='teacher'`)**
    - Self-registers via `/auth/register`. Created with `is_active_account=False` and `department='Pending'`.

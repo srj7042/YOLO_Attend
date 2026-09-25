@@ -60,5 +60,5 @@ SmartAttend-main_sujal/
 ## Key Application Entry Points
 
 1. `app.py:create_app()`: Application factory initializes Flask, loads `Config`, sets up uploads directory, binds `db` and `login_manager`, registers blueprints (`auth_bp`, `admin_bp`, `teacher_bp`), defines context processor `inject_globals()`, and invokes `db.create_all()` and `seed_demo_data()`.
-2. `app.py:seed_demo_data()`: Idempotently seeds default admin user (`username='utkarshyadav29'`, `password='Rgi@best'`).
+2. `app.py:seed_demo_data()`: Idempotently seeds default admin user (`username='admin'`, `password='admin'`).
 3. Routing Root (`/`): Evaluates `current_user.is_authenticated` and redirects admins to `admin.dashboard`, teachers to `teacher.dashboard`, and unauthenticated users to `auth.login`.

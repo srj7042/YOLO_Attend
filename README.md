@@ -211,7 +211,7 @@ Upon initial startup, the database is pre-seeded with role-based demo accounts:
 
 | Role | Username | Password | Notes |
 |---|---|---|---|
-| **Admin** | `utkarshyadav29` | `Rgi@best` | Full Master Admin access |
+| **Admin** | `admin` | `admin` | Full Master Admin access |
 | **Director** | `DIR001` | `dir123` | Executive institute reports |
 | **HOD** | `HOD001` | `hod123` | Head of CSE Department |
 | **Teacher** | `TCH001` | `tch123` | Prof. Alan Turing |
@@ -221,7 +221,7 @@ Upon initial startup, the database is pre-seeded with role-based demo accounts:
 
 ## 📖 How to Use Student Training
 
-1. Log in as an **Admin** (`utkarshyadav29` / `Rgi@best`).
+1. Log in as an **Admin** (`admin` / `admin`).
 2. Click **Student Training** in the sidebar.
 3. Use the top filters (Department, Class, Status, Search) to locate any student.
 4. Click **Manage Photos** on a student card:
