@@ -1,4 +1,4 @@
-# 🎓 SmartAttend (YOLO_Attend)
+# 🎓 SmartAttend (`YOLO_Attend`)
 ### AI-Powered Facial Recognition Attendance & Student Training System
 
 ![Python](https://img.shields.io/badge/Python-3.9%2B-blue.svg)
@@ -6,9 +6,16 @@
 ![YOLOv8](https://img.shields.io/badge/YOLO-v8-orange.svg)
 ![DeepFace](https://img.shields.io/badge/DeepFace-FaceNet-red.svg)
 ![OpenCV](https://img.shields.io/badge/OpenCV-Restoration-brightgreen.svg)
+![Owner](https://img.shields.io/badge/Owner-srj7042-blueviolet.svg)
 ![License](https://img.shields.io/badge/License-MIT-purple.svg)
 
 **SmartAttend** is a full-stack, enterprise-grade AI attendance management platform designed for educational institutions. It automates classroom attendance by detecting and identifying faces in group classroom photographs using **YOLOv8** computer vision, **OpenCV image restoration**, and **DeepFace / FaceNet** biometric embeddings.
+
+---
+
+## 👤 Repository Owner & Maintainer
+- **Owner**: **Suraj Jaiswal** ([@srj7042](https://github.com/srj7042))
+- **Repository**: [https://github.com/srj7042/YOLO_Attend.git](https://github.com/srj7042/YOLO_Attend.git)
 
 ---
 
@@ -164,7 +171,7 @@ YOLO_Attend/
 
 ### 2. Clone Repository
 ```bash
-git clone https://github.com/your-username/YOLO_Attend.git
+git clone https://github.com/srj7042/YOLO_Attend.git
 cd YOLO_Attend
 ```
 
@@ -231,6 +238,14 @@ Run the accuracy diagnostic script to test quality scoring, unsharp blur sharpen
 ```bash
 python test_accuracy.py path/to/classroom_photo.jpg
 ```
+
+---
+
+## 🧑‍💻 Author & Owner
+
+**Suraj Jaiswal** (`srj7042`)  
+GitHub: [@srj7042](https://github.com/srj7042)  
+Repository: [srj7042/YOLO_Attend](https://github.com/srj7042/YOLO_Attend)
 
 ---
 
