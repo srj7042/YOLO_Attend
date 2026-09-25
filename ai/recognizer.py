@@ -10,12 +10,12 @@ from ai.detector import (
     cosine_similarity
 )
 
-def process_attendance(image_paths, students, threshold=0.6, deep_scan=False):
+def process_attendance(image_paths, students, threshold=0.84, deep_scan=False):
     """
     Process classroom photos and match detected faces against student biometrics.
-    Uses strict threshold matching and vectorized matrix cosine comparison.
+    Strict verification (>=0.84 standard, >=0.88 deep scan) and 1-to-1 candidate sorting.
     """
-    effective_threshold = 0.65 if deep_scan else threshold
+    effective_threshold = 0.88 if deep_scan else threshold
     
     results = {s.id: {'status': 'absent', 'confidence': 0.0, 'name': s.name,
                        'student_id': s.student_id} for s in students}
@@ -24,16 +24,34 @@ def process_attendance(image_paths, students, threshold=0.6, deep_scan=False):
     if not students_with_faces:
         return results
 
-    for img_path in image_paths:
+    candidates = []
+    for img_idx, img_path in enumerate(image_paths):
         encodings = detect_and_encode_faces(img_path, deep_scan=deep_scan)
 
-        for enc in encodings:
+        for enc_idx, enc in enumerate(encodings):
             student, conf = match_face_to_students(enc, students_with_faces, effective_threshold)
-            if student:
-                # Keep highest confidence match
-                if conf > results[student.id]['confidence']:
-                    results[student.id]['confidence'] = round(conf, 3)
-                    results[student.id]['status'] = 'present'
+            if student and conf >= effective_threshold:
+                candidates.append({
+                    'student_id': student.id,
+                    'confidence': conf,
+                    'face_id': f"{img_idx}_{enc_idx}"
+                })
+
+    # Sort candidates by highest confidence first (Global Optimal 1-to-1 Assignment)
+    candidates.sort(key=lambda x: x['confidence'], reverse=True)
+    assigned_faces = set()
+    assigned_students = set()
+
+    for cand in candidates:
+        s_id = cand['student_id']
+        f_id = cand['face_id']
+        conf = cand['confidence']
+
+        if s_id not in assigned_students and f_id not in assigned_faces:
+            assigned_students.add(s_id)
+            assigned_faces.add(f_id)
+            results[s_id]['confidence'] = round(conf, 3)
+            results[s_id]['status'] = 'present'
 
     return results
 

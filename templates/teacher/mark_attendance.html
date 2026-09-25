@@ -60,12 +60,26 @@
 .btn-export:hover { background: var(--b1); color: var(--t0); border-color: var(--b2); }
 </style>
 
-<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+<div style="display:flex; justify-space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:12px;">
     <div>
         <h1 style="font-family:var(--font-heading); font-weight:800; font-size:26px; color:var(--t0); margin-bottom:2px;">Precision Vision Hub</h1>
         <p style="font-size:13px; color:var(--t2);">Real-time classroom analysis and attendance management.</p>
     </div>
+    <div>
+        <span style="background: rgba(6, 182, 212, 0.12); color: var(--cyan); border: 1px solid rgba(6, 182, 212, 0.3); padding: 6px 14px; border-radius: 30px; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+            <i class="fas fa-calendar-check"></i> 3-Day Attendance Window ({{ window_min }} to {{ window_max }})
+        </span>
+    </div>
 </div>
+
+{% if not is_window_valid %}
+<div style="background: rgba(239, 68, 68, 0.12); border: 1px solid var(--red); color: var(--red); padding: 14px 20px; border-radius: 14px; font-size: 13.5px; font-weight: 600; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+    <i class="fas fa-lock" style="font-size: 18px;"></i>
+    <div>
+        <strong>Attendance Window Closed for {{ att_date }}!</strong> Teachers can only mark or edit attendance within the 3-day window ({{ window_min }} to {{ window_max }}). Dates older than 3 days are locked.
+    </div>
+</div>
+{% endif %}
 
 <div class="filters-bar">
     <div class="filter-item">
@@ -73,7 +87,7 @@
         <select class="filter-select" id="subjectFilter" onchange="loadSchedules(this.value)">
             <option value="">Choose Subject</option>
             {% for s in approved_subjects %}
-            <option value="{{ s.id }}" {% if subject and subject.id == s.id %}selected{% endif %}>{{ s.name }} ({{ s.class_ref.section }})</option>
+            <option value="{{ s.id }}" {% if subject and subject.id == s.id %}selected{% endif %}>{{ s.name }} ({{ s.class_ref.full_name if s.class_ref else (s.code or 'General') }})</option>
             {% endfor %}
         </select>
     </div>

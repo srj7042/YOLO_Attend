@@ -264,6 +264,42 @@ def add_department():
     flash(f'Department "{name}" ({year_labels.get(year, "")}) created successfully.', 'success')
     return redirect(url_for('admin.staff_log'))
 
+@admin_bp.route('/add_subject', methods=['POST'])
+@login_required
+@admin_required
+def add_subject():
+    subj_name = request.form.get('subj_name', '').strip()
+    subj_code = request.form.get('subj_code', '').strip().upper()
+    class_id = request.form.get('class_id')
+    teacher_id = request.form.get('teacher_id')
+    credits = request.form.get('credits', 4)
+
+    if not subj_name or not class_id:
+        flash('Subject name and Division are required.', 'error')
+        return redirect(url_for('admin.staff_log'))
+
+    cls = Class.query.get(class_id)
+    if not cls:
+        flash('Invalid Division selected.', 'error')
+        return redirect(url_for('admin.staff_log'))
+
+    if not subj_code:
+        words = [w[0] for w in subj_name.split() if w]
+        code_prefix = "".join(words)[:4].upper() or "SUB"
+        subj_code = f"{code_prefix}101"
+
+    subj = Subject(
+        name=subj_name,
+        code=subj_code,
+        class_id=int(class_id),
+        credits=int(credits) if credits else 4,
+        teacher_id=int(teacher_id) if teacher_id and teacher_id.isdigit() else None
+    )
+    db.session.add(subj)
+    db.session.commit()
+    flash(f'Subject "{subj_name}" ({subj_code}) added successfully for {cls.full_name}.', 'success')
+    return redirect(url_for('admin.staff_log'))
+
 @admin_bp.route('/student-registration')
 @login_required
 @admin_required
@@ -667,7 +703,8 @@ def staff_log():
     for yr in [1, 2, 3, 4]:
         dept_by_year[yr] = {'label': year_labels[yr], 'depts': [d for d in dept_stats if d['year'] == yr]}
 
-    return render_template('admin/staff_log.html', teachers=teachers, dept_stats=dept_stats, dept_by_year=dept_by_year)
+    all_classes = Class.query.order_by(Class.name, Class.section).all()
+    return render_template('admin/staff_log.html', teachers=teachers, dept_stats=dept_stats, dept_by_year=dept_by_year, all_classes=all_classes)
 
 @admin_bp.route('/get_divisions/<int:dept_id>')
 @login_required
@@ -965,7 +1002,7 @@ def train_student(student_id):
 
     try:
         from ai.detector import train_student_biometrics
-        train_result = train_student_biometrics(image_paths, max_embeddings=10)
+        train_result = train_student_biometrics(image_paths, max_embeddings=15)
 
         if train_result.get('success') and len(train_result.get('embeddings', [])) > 0:
             embeddings = train_result['embeddings']
@@ -1062,7 +1099,7 @@ def train_all_students():
             continue
 
         try:
-            train_res = train_student_biometrics(image_paths, max_embeddings=10)
+            train_res = train_student_biometrics(image_paths, max_embeddings=15)
             if train_res.get('success') and len(train_res.get('embeddings', [])) > 0:
                 embeddings = train_res['embeddings']
                 student.set_encoding(embeddings)

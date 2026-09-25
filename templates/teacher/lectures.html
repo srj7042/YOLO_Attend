@@ -80,12 +80,21 @@ body { background: var(--bg0) !important; }
   
   <div class="input-grid" style="margin-bottom: 32px;">
     <div class="input-group">
-      <label class="input-label">Subject Name</label>
-      <input type="text" class="input-field" id="sName" placeholder="e.g. Advanced AI Models" {% if not is_approved %}disabled{% endif %}>
+      <label class="input-label">Select Subject (Admin Created)</label>
+      <select class="input-field" id="sName" onchange="autoFillSubjectCode(this)" {% if not is_approved %}disabled{% endif %}>
+        <option value="" disabled selected>-- Choose Subject --</option>
+        {% if all_subjects and all_subjects|length > 0 %}
+          {% for subj in all_subjects %}
+          <option value="{{ subj.name }}" data-code="{{ subj.code or '' }}" data-id="{{ subj.id }}">{{ subj.name }} {% if subj.code %}({{ subj.code }}){% endif %}</option>
+          {% endfor %}
+        {% else %}
+          <option value="" disabled>No subjects created by Admin yet</option>
+        {% endif %}
+      </select>
     </div>
     <div class="input-group">
       <label class="input-label">Subject Code</label>
-      <input type="text" class="input-field" placeholder="e.g. CS-402-AI" id="sCode" {% if not is_approved %}disabled{% endif %}>
+      <input type="text" class="input-field" id="sCode" readonly placeholder="Auto-filled from Admin subject..." style="background: rgba(0,0,0,0.05); cursor: not-allowed;" {% if not is_approved %}disabled{% endif %}>
     </div>
     <div class="input-group">
       <label class="input-label">Department</label>
@@ -207,9 +216,15 @@ function showToast(msg, isError=false) {
     setTimeout(() => { t.style.opacity='0'; setTimeout(()=>t.remove(), 300); }, 3000);
 }
 
+function autoFillSubjectCode(selectEl) {
+    const selectedOpt = selectEl.options[selectEl.selectedIndex];
+    const code = selectedOpt ? selectedOpt.getAttribute('data-code') : '';
+    document.getElementById('sCode').value = code || '';
+}
+
 function unlockStep2() {
-    if(document.getElementById('sName').value.trim() === "") {
-        showToast("Please enter a subject name first.", true);
+    if(document.getElementById('sName').value === "") {
+        showToast("Please select a subject created by Admin first.", true);
         return;
     }
     document.getElementById('step2').classList.remove('locked');

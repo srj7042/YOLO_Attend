@@ -3,7 +3,7 @@ from flask_login import login_required, current_user
 from functools import wraps
 from models import User, Class, Subject, Student, AttendanceRecord, ApprovalRequest, Department
 from extensions import db
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import csv, io, json, os, pandas as pd
 from werkzeug.utils import secure_filename
 from config import Config
@@ -21,6 +21,42 @@ def teacher_required(f):
 
 def get_approved_reqs():
     return ApprovalRequest.query.filter_by(teacher_id=current_user.id, status='approved').all()
+
+def get_teacher_subjects():
+    """Return all subjects available for the current teacher (assigned, approved, department, or system fallback)."""
+    approved_requests = get_approved_reqs()
+    req_subject_ids = [r.subject_id for r in approved_requests if r.subject_id]
+    
+    # 1. Direct assignments in Subject table
+    assigned_subjects = Subject.query.filter_by(teacher_id=current_user.id).all() if hasattr(current_user, 'id') else []
+    
+    # 2. Approved requests
+    approved_req_subjects = [Subject.query.get(sid) for sid in req_subject_ids if Subject.query.get(sid)]
+    
+    subj_dict = {}
+    for s in assigned_subjects:
+        if s: subj_dict[s.id] = s
+    for s in approved_req_subjects:
+        if s: subj_dict[s.id] = s
+        
+    # 3. Fallback: Check department if no subjects assigned/approved
+    if not subj_dict and getattr(current_user, 'department', None):
+        dept = Department.query.filter(Department.name.ilike(f"%{current_user.department}%")).first()
+        if dept:
+            dept_classes = Class.query.filter_by(department_id=dept.id).all()
+            dept_class_ids = [c.id for c in dept_classes]
+            if dept_class_ids:
+                dept_subjs = Subject.query.filter(Subject.class_id.in_(dept_class_ids)).all()
+                for s in dept_subjs:
+                    subj_dict[s.id] = s
+
+    # 4. Ultimate fallback: Return all subjects if still empty so teacher can select any subject
+    if not subj_dict:
+        all_subjs = Subject.query.all()
+        for s in all_subjs:
+            subj_dict[s.id] = s
+            
+    return list(subj_dict.values())
 
 @teacher_bp.route('/dashboard')
 @login_required
@@ -157,7 +193,7 @@ def lectures():
             import json
             data = json.loads(payload_str)
             
-            # Find or Create Department
+            # Find Department
             dept_name = data.get('dept', 'Unknown Dept')
             dept = Department.query.filter_by(name=dept_name).first()
             if not dept:
@@ -165,7 +201,7 @@ def lectures():
                 db.session.add(dept)
                 db.session.flush()
 
-            # Find or Create Class
+            # Find Class
             year_map = {"First Year": 1, "Second Year": 2, "Third Year": 3, "BTech": 4}
             year_val = year_map.get(data.get('year'), 1)
             cls_name = f"{data.get('year')} {dept.code}"
@@ -176,12 +212,16 @@ def lectures():
                 db.session.add(cls)
                 db.session.flush()
 
-            # Find or Create Subject
-            subj = Subject.query.filter_by(name=data.get('name'), class_id=cls.id).first()
+            # Find Admin-created Subject (Teachers cannot create new subjects)
+            subj_name = data.get('name')
+            subj = Subject.query.filter_by(name=subj_name).first()
             if not subj:
-                subj = Subject(name=data.get('name'), code=data.get('code'), class_id=cls.id)
-                db.session.add(subj)
-                db.session.flush()
+                # Fallback to lookup by code or id if name match fails
+                subj = Subject.query.filter_by(code=data.get('code')).first()
+            
+            if not subj:
+                flash('Only Admin can create new subjects. Please select a valid subject created by Admin.', 'error')
+                return redirect(url_for('teacher.lectures'))
 
             # Check if pending request already exists
             existing = ApprovalRequest.query.filter_by(teacher_id=current_user.id, subject_id=subj.id, status='pending').first()
@@ -194,15 +234,16 @@ def lectures():
                 )
                 db.session.add(req)
                 db.session.commit()
-                flash('Subject and Schedule request sent to Admin for approval.', 'success')
+                flash(f'Schedule request for "{subj.name}" sent to Admin for approval.', 'success')
             else:
                 flash('You already have a pending request for this subject.', 'warning')
             
             return redirect(url_for('teacher.dashboard'))
             
+    all_subjects = Subject.query.order_by(Subject.name.asc()).all()
     departments = Department.query.all()
     is_approved = current_user.is_active_account
-    return render_template('teacher/lectures.html', departments=departments, is_approved=is_approved)
+    return render_template('teacher/lectures.html', all_subjects=all_subjects, departments=departments, is_approved=is_approved)
 
 @teacher_bp.route('/delete_subject/<int:subject_id>', methods=['POST'])
 @login_required
@@ -392,12 +433,19 @@ def delete_student_photo(student_id, filename):
 @teacher_required
 def mark_attendance():
     approved_requests = get_approved_reqs()
-    approved_subjects = [Subject.query.get(r.subject_id) for r in approved_requests if Subject.query.get(r.subject_id)]
+    approved_subjects = get_teacher_subjects()
     
     subject_id = request.args.get('subject_id', type=int)
-    att_date_str = request.args.get('date', datetime.now().strftime('%Y-%m-%d'))
+    today_date = datetime.now().date()
+    min_window_date = today_date - timedelta(days=3)
+    max_window_date = today_date
+    today_str = today_date.strftime('%Y-%m-%d')
+    att_date_str = request.args.get('date', today_str)
     
-    # Get approved dates for this subject
+    # Generate 3-day window allowed date options: [today, today-1, today-2, today-3]
+    window_dates = [(today_date - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(4)]
+    
+    # Get approved dates for this subject and filter to 3-day window
     approved_dates = []
     schedules_by_date = {} # To help UI with time slots
     if subject_id:
@@ -413,7 +461,21 @@ def mark_attendance():
                                 schedules_by_date[d] = item.get('times', [])
                 except: pass
     
-    att_date = datetime.strptime(att_date_str, '%Y-%m-%d').date()
+    # Merge window dates
+    for w_date in window_dates:
+        if w_date not in approved_dates:
+            approved_dates.append(w_date)
+    approved_dates.sort(reverse=True)
+
+    try:
+        att_date = datetime.strptime(att_date_str, '%Y-%m-%d').date()
+    except Exception:
+        att_date = today_date
+        att_date_str = today_str
+
+    # 3-Day Window Validation Flag
+    is_window_valid = (min_window_date <= att_date <= max_window_date)
+
     # Find slots for currently selected date
     current_slots = schedules_by_date.get(att_date_str, [])
     subject = None
@@ -429,7 +491,7 @@ def mark_attendance():
             record_map = {r.student_id: r for r in records}
             
             if records: is_processed = True
-            is_finalized = any(r.is_finalized for r in records)
+            is_finalized = not is_window_valid # Lock if date is outside 3-day window
             
             for s in students:
                 rec = record_map.get(s.id)
@@ -438,7 +500,7 @@ def mark_attendance():
                     'is_present': rec.status == 'present' if rec else False,
                     'confidence': int((rec.ai_confidence or 0) * 100) if rec else 0,
                     'method': rec.method if rec else None,
-                    'is_finalized': rec.is_finalized if rec else False
+                    'is_finalized': is_finalized
                 })
 
     if request.method == 'POST':
@@ -452,21 +514,30 @@ def mark_attendance():
             flash('Please select a subject and upload photos.', 'error')
             return redirect(url_for('teacher.mark_attendance', subject_id=subject_id, date=attendance_date))
             
+        att_date_obj = datetime.strptime(attendance_date, '%Y-%m-%d').date()
+        if not (min_window_date <= att_date_obj <= max_window_date):
+            flash(f'⚠️ Attendance Window Closed! Teachers can only mark or edit attendance within the 3-day window ({min_window_date.strftime("%d %b")} to {max_window_date.strftime("%d %b %Y")}). Older dates are locked.', 'error')
+            return redirect(url_for('teacher.mark_attendance', subject_id=subject_id, date=attendance_date))
+
         subject = Subject.query.get_or_404(subject_id)
         students = Student.query.filter_by(class_id=subject.class_id).all()
         
         session_folder = os.path.join(Config.UPLOAD_FOLDER, 'sessions', f'{subject_id}_{attendance_date}')
         os.makedirs(session_folder, exist_ok=True)
-        saved_paths = []
         for photo in photos:
             if photo and photo.filename:
                 path = os.path.join(session_folder, secure_filename(photo.filename))
                 photo.save(path)
-                saved_paths.append(path)
+        
+        # Collect all photos uploaded in this session for cumulative multi-photo recognition
+        all_session_photos = [
+            os.path.join(session_folder, f) for f in os.listdir(session_folder)
+            if f.lower().endswith(('.png', '.jpg', '.jpeg', '.webp'))
+        ]
         
         try:
             from ai.recognizer import process_attendance
-            results = process_attendance(saved_paths, students, deep_scan=is_retry)
+            results = process_attendance(all_session_photos, students, deep_scan=is_retry)
         except Exception as e:
             import traceback
             traceback.print_exc()
@@ -479,10 +550,10 @@ def mark_attendance():
             existing = AttendanceRecord.query.filter_by(student_id=s.id, subject_id=subject_id, date=att_date_obj).first()
             
             if existing:
-                if not getattr(existing, 'is_finalized', False):
-                    existing.status = res['status']
-                    existing.ai_confidence = res.get('confidence', 0.0)
-                    existing.method = 'yolo' if not is_retry else 'yolo (deep)'
+                existing.status = res['status']
+                existing.ai_confidence = res.get('confidence', 0.0)
+                existing.method = 'yolo' if not is_retry else 'yolo (deep)'
+                if lecture_time:
                     existing.time_slot = lecture_time
             else:
                 db.session.add(AttendanceRecord(
@@ -508,7 +579,10 @@ def mark_attendance():
                            att_date=att_date_str,
                            is_processed=is_processed,
                            is_finalized=is_finalized,
-                           today=datetime.now().strftime('%Y-%m-%d'))
+                           is_window_valid=is_window_valid,
+                           window_min=min_window_date.strftime('%Y-%m-%d'),
+                           window_max=max_window_date.strftime('%Y-%m-%d'),
+                           today=today_str)
 
 @teacher_bp.route('/finalize-attendance', methods=['POST'])
 @login_required
@@ -739,12 +813,18 @@ def mark_attendance_manual():
     if not all([sid, sub_id, date_str, status]):
         return jsonify({'error': 'Missing data'}), 400
         
+    today_date = datetime.now().date()
+    min_window_date = today_date - timedelta(days=3)
+    max_window_date = today_date
+    att_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+
+    if not (min_window_date <= att_date <= max_window_date):
+        return jsonify({'error': '⚠️ Attendance Window Closed! Teachers can only edit attendance within the 3-day window.'}), 403
+        
     att_date = datetime.strptime(date_str, '%Y-%m-%d').date()
     existing = AttendanceRecord.query.filter_by(student_id=sid, subject_id=sub_id, date=att_date).first()
     
     if existing:
-        if getattr(existing, 'is_finalized', False):
-            return jsonify({'error': 'This session is finalized and locked.'}), 403
         existing.status = status
         existing.is_manual_override = True
     else:

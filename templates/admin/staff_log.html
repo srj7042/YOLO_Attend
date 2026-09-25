@@ -168,8 +168,9 @@
 
 <div class="fac-header fu fu3">
   <div class="fac-title">Faculty Directory</div>
-  <div style="display:flex;gap:12px;">
+  <div style="display:flex;gap:12px;flex-wrap:wrap;">
     <button class="btn-add-dept" onclick="openAddDeptModal()"><i class="fas fa-plus"></i> Add Department</button>
+    <button class="btn bs" style="border-radius:10px; padding: 12px 20px; font-family:var(--font-mono); font-weight:700;" onclick="openAddSubjectModal()"><i class="fas fa-book-bookmark" style="margin-right:6px;"></i> Add Subject</button>
     <button class="btn bp" style="border-radius:10px; padding: 12px 24px; font-family:var(--font-mono); font-weight:700;" onclick="openModal('modal-add-teacher')"><i class="fas fa-user-plus" style="margin-right:6px;"></i> Add Faculty</button>
   </div>
 </div>
@@ -238,7 +239,10 @@
 
       <!-- Subject Dropdown -->
       <div id="subjectSection" style="display:none; margin-bottom:20px;">
-        <div class="lm-label"><span>SELECT SUBJECT</span></div>
+        <div class="lm-label" style="display:flex; justify-content:space-between; align-items:center;">
+          <span>SELECT SUBJECT</span>
+          <span class="lm-actions"><a href="#" onclick="openAddSubjectModal(currentClassId)"><i class="fas fa-plus" style="margin-right:2px"></i> CREATE SUBJECT</a></span>
+        </div>
         <select id="subjectDropdown" class="fc" style="width:100%; margin-bottom:8px;" onchange="loadStudentData()">
           <option value="">Choose a subject...</option>
         </select>
@@ -348,6 +352,56 @@
       <div class="lmodal-footer" style="display:flex;justify-content:flex-end;padding:0 26px 26px 26px;gap:12px;">
         <button type="button" onclick="closeAddDeptModal()" style="background:var(--bg3);border:none;border-radius:10px;padding:12px 24px;font-family:var(--font-mono);font-size:13px;font-weight:700;cursor:pointer;color:var(--t1);">Cancel</button>
         <button type="submit" class="btn-purple" style="background:#0F204C;color:white;border:none;border-radius:10px;padding:12px 28px;font-family:var(--font-mono);font-size:13px;font-weight:700;cursor:pointer;">Create Department</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Add Subject Modal -->
+<div class="modal-overlay" id="addSubjectModalOverlay" style="opacity:0;pointer-events:none;transition:opacity 0.2s;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:9999;">
+  <div class="large-modal" onclick="event.stopPropagation()" style="background:var(--bg1);width:480px;max-width:90vw;border-radius:18px;overflow:hidden;transform:translateY(20px);transition:transform 0.2s;box-shadow:0 24px 48px rgba(0,0,0,0.3);border:1px solid var(--b0);">
+    <div class="lmodal-header" style="background:#0F204C;color:#fff;padding:26px;position:relative;">
+      <button class="lmodal-close" onclick="closeAddSubjectModal()" style="position:absolute;top:20px;right:20px;background:transparent;border:none;color:rgba(255,255,255,0.6);cursor:pointer;font-size:20px;"><i class="fas fa-times"></i></button>
+      <div class="lmodal-tag" style="display:inline-block;border:1px solid rgba(255,255,255,0.25);border-radius:6px;font-family:var(--font-mono);padding:4px 10px;font-size:11px;margin-bottom:12px;text-transform:uppercase;">Curriculum</div>
+      <div class="lmodal-title" style="font-family:var(--font-heading);font-size:26px;font-weight:700;color:#fff;">Add Subject</div>
+      <div class="lmodal-sub" style="font-size:13px;color:rgba(255,255,255,0.8);">Create a subject for a division and optionally assign a faculty member.</div>
+    </div>
+    <form method="POST" action="{{ url_for('admin.add_subject') }}">
+      <div class="lmodal-body" style="padding:26px;">
+        <div style="margin-bottom:18px;">
+          <label style="font-family:var(--font-heading);font-size:12px;font-weight:700;color:var(--t1);text-transform:uppercase;display:block;margin-bottom:8px;">Subject Name <span style="color:red;">*</span></label>
+          <input name="subj_name" class="lm-select" placeholder="e.g. Artificial Intelligence, Data Structures" required style="margin-bottom:0; width:100%; padding:12px 16px; border:1px solid var(--b0); border-radius:10px; font-family:var(--font-body); font-size:14px; background:var(--bg0); color:var(--t0);">
+        </div>
+        <div style="margin-bottom:18px;">
+          <label style="font-family:var(--font-heading);font-size:12px;font-weight:700;color:var(--t1);text-transform:uppercase;display:block;margin-bottom:8px;">Subject Code</label>
+          <input name="subj_code" class="lm-select" placeholder="e.g. AI501, CS301" style="margin-bottom:0; text-transform:uppercase; width:100%; padding:12px 16px; border:1px solid var(--b0); border-radius:10px; font-family:var(--font-body); font-size:14px; background:var(--bg0); color:var(--t0);">
+        </div>
+        <div style="margin-bottom:18px;">
+          <label style="font-family:var(--font-heading);font-size:12px;font-weight:700;color:var(--t1);text-transform:uppercase;display:block;margin-bottom:8px;">Division / Class <span style="color:red;">*</span></label>
+          <select name="class_id" id="addSubjClassSelect" class="lm-select" required style="margin-bottom:0; width:100%; padding:12px 16px; border:1px solid var(--b0); border-radius:10px; font-family:var(--font-body); font-size:14px; background:var(--bg0); color:var(--t0);">
+            <option value="">Choose Division...</option>
+            {% for c in all_classes %}
+            <option value="{{ c.id }}">{{ c.full_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div style="margin-bottom:18px;">
+          <label style="font-family:var(--font-heading);font-size:12px;font-weight:700;color:var(--t1);text-transform:uppercase;display:block;margin-bottom:8px;">Assigned Faculty (Optional)</label>
+          <select name="teacher_id" class="lm-select" style="margin-bottom:0; width:100%; padding:12px 16px; border:1px solid var(--b0); border-radius:10px; font-family:var(--font-body); font-size:14px; background:var(--bg0); color:var(--t0);">
+            <option value="">Unassigned</option>
+            {% for t in teachers if t.is_active_account %}
+            <option value="{{ t.id }}">{{ t.name }} ({{ t.department or 'Faculty' }})</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label style="font-family:var(--font-heading);font-size:12px;font-weight:700;color:var(--t1);text-transform:uppercase;display:block;margin-bottom:8px;">Credits</label>
+          <input type="number" name="credits" value="4" min="1" max="10" class="lm-select" style="margin-bottom:0; width:100%; padding:12px 16px; border:1px solid var(--b0); border-radius:10px; font-family:var(--font-body); font-size:14px; background:var(--bg0); color:var(--t0);">
+        </div>
+      </div>
+      <div class="lmodal-footer" style="display:flex;justify-content:flex-end;padding:0 26px 26px 26px;gap:12px;">
+        <button type="button" onclick="closeAddSubjectModal()" style="background:var(--bg3);border:none;border-radius:10px;padding:12px 24px;font-family:var(--font-mono);font-size:13px;font-weight:700;cursor:pointer;color:var(--t1);">Cancel</button>
+        <button type="submit" class="btn-purple" style="background:#0F204C;color:white;border:none;border-radius:10px;padding:12px 28px;font-family:var(--font-mono);font-size:13px;font-weight:700;cursor:pointer;">Save Subject</button>
       </div>
     </form>
   </div>
@@ -478,11 +532,31 @@ function closeAddDeptModal() {
   overlay.querySelector('.large-modal').style.transform = 'translateY(20px)';
 }
 
+function openAddSubjectModal(selectedClassId) {
+  const overlay = document.getElementById('addSubjectModalOverlay');
+  overlay.style.opacity = '1';
+  overlay.style.pointerEvents = 'auto';
+  overlay.querySelector('.large-modal').style.transform = 'translateY(0)';
+  if (selectedClassId) {
+    const sel = document.getElementById('addSubjClassSelect');
+    if (sel) sel.value = selectedClassId;
+  }
+}
+function closeAddSubjectModal() {
+  const overlay = document.getElementById('addSubjectModalOverlay');
+  overlay.style.opacity = '0';
+  overlay.style.pointerEvents = 'none';
+  overlay.querySelector('.large-modal').style.transform = 'translateY(20px)';
+}
+
 document.getElementById('deptModalOverlay').addEventListener('click', function(e) {
   if(e.target === this) closeDeptModal();
 });
 document.getElementById('addDeptModalOverlay').addEventListener('click', function(e) {
   if(e.target === this) closeAddDeptModal();
+});
+document.getElementById('addSubjectModalOverlay').addEventListener('click', function(e) {
+  if(e.target === this) closeAddSubjectModal();
 });
 </script>
 {% endblock %}

@@ -5,43 +5,54 @@
 ![Flask](https://img.shields.io/badge/Flask-3.0.0-green.svg)
 ![YOLOv8](https://img.shields.io/badge/YOLO-v8-orange.svg)
 ![DeepFace](https://img.shields.io/badge/DeepFace-FaceNet-red.svg)
+![OpenCV](https://img.shields.io/badge/OpenCV-Restoration-brightgreen.svg)
 ![License](https://img.shields.io/badge/License-MIT-purple.svg)
 
-**SmartAttend** is a full-stack, enterprise-grade AI attendance management platform designed for educational institutions. It automates classroom attendance by detecting and identifying faces in group classroom photographs using **YOLOv8** computer vision and **DeepFace / FaceNet** biometric embeddings.
+**SmartAttend** is a full-stack, enterprise-grade AI attendance management platform designed for educational institutions. It automates classroom attendance by detecting and identifying faces in group classroom photographs using **YOLOv8** computer vision, **OpenCV image restoration**, and **DeepFace / FaceNet** biometric embeddings.
 
 ---
 
 ## 🌟 Key Features
 
-### 1. 🤖 AI Attendance Marking (YOLOv8 + DeepFace)
-- **High-Resolution Crowd Detection**: Uses YOLOv8 Medium (`yolov8m.pt`) with multi-scale inference (`imgsz=1280`) to accurately localize students even in dense, distant lecture hall rows.
-- **Deep Biometric Embeddings**: Generates 128-dimensional facial vectors via FaceNet with OpenCV face alignment.
-- **Cosine Similarity Matching**: Matches live classroom captures against stored student biometrics (threshold $\ge 0.60$; Deep Scan $\ge 0.65$).
-- **Deep Scan Retry**: Enhanced secondary scan pass with lower confidence thresholds and stricter IoU filters for difficult lighting or partial face occlusions.
+### 1. 🤖 AI Attendance Marking (YOLOv8 + OpenCV + DeepFace)
+- **High-Resolution Crowd Detection**: Uses YOLOv8 Medium (`yolov8m.pt`) with adaptive resolution scaling (`imgsz=1280` or `1536`) to accurately localize students in dense classroom rows.
+- **Blur & Low-Light Image Restoration**:
+  - **Adaptive Unsharp Masking**: Sharpens blurred photos using unsharp masking ($1.6 \times I - 0.6 \times \text{GaussianBlur}(I)$) based on Laplacian variance blur scoring.
+  - **CLAHE Lighting Normalization**: Applies Contrast Limited Adaptive Histogram Equalization on LAB color space to equalize dim lighting.
+  - **Bicubic Crop Upscaling**: Automatically rescales small or distant face crops ($<160\times 160\text{px}$) to standard resolution with edge enhancement.
+  - **OpenCV Haar Cascade Fallback**: Auto-triggers Haar Cascade frontal face detection if YOLO yields zero boxes on extremely blurry images.
+- **Deep Biometric Embeddings**: Generates 128-dimensional L2-normalized facial vectors via FaceNet.
+- **Quality-Aware Cosine Matching**: Vectorized matrix dot-product comparison against stored biometrics (Threshold: $\ge 0.55$; Deep Scan $\ge 0.58$).
+- **Deep Scan Retry**: Enhanced secondary scan pass with lower detection thresholds (`conf=0.12`) and expanded crop padding (`pad=20`px) for difficult lighting or partial face occlusions.
 
-### 2. 🧠 Student AI Training Center (Admin Panel)
+### 2. 📸 Biometric Training & Image Requirements
+- **Student Registration (Training)**:
+  - **Minimum Required**: **1 photo** (2–4 photos recommended).
+  - **Multi-Stage Augmentation**: Generates 4 L2-normalized embeddings per crop (Original, Horizontal Mirroring, CLAHE Lighting, Unsharp Masking). Even a 1–2 photo upload yields 4–8 distinct biometric profile vectors in the database.
+- **Classroom Attendance Marking**:
+  - **Minimum Required**: **1 wide-angle classroom photo** (2–3 photos recommended for large lecture halls to prevent student occlusion).
+
+### 3. 🧠 Student AI Training Center (Admin Panel)
 - **Dynamic Student Dataset Grid**: View all registered students with real-time biometric training statuses (`Trained`, `Training`, `Not Trained`).
-- **Per-Student Photo Management**: Upload multiple high-resolution reference photos per student with drag-and-drop simplicity and isolated folder storage (`uploads/training_images/student_<id>/`).
-- **Individual Training**: Train and update biometric encodings for a single student on-demand.
-- **Bulk Training ("Train All Students")**: One-click batch training across all students in the database with uploaded photos.
-- **Dynamic Multi-Filters**: Instant client-side filtering by Department, Class/Division, Training Status, and full-text Search (Name, Roll No, Reg No).
+- **Per-Student Photo Management**: Drag-and-drop multiple facial photos per student with isolated storage (`uploads/training_images/student_<id>/`).
+- **Individual & Bulk Training**: One-click single student training or batch "Train All Students" across the entire institution.
+- **Dynamic Multi-Filters**: Client-side filtering by Department, Class/Division, Training Status, and Search.
 
-### 3. 📋 Student Registration & Verification Workflow
+### 4. 📋 Student Registration & Verification Workflow
 - **Application Queue**: Multi-tab interface separating `Pending Applications`, `Verified Students`, `Add Student`, and `CSV Upload`.
-- **Automatic Identity Generation**: Auto-generates official branch registration numbers (`ACSE`, `ACOE`, `AIFT`) and sequential roll numbers upon verification.
-- **Bulk CSV Import & Preview**: Validates email/phone uniqueness, schema integrity, and branch assignments before importing.
+- **Automatic Identity Generation**: Auto-generates official branch registration numbers (`ACSE`, `ACOE`, `AIFT`) and roll numbers upon verification.
+- **Bulk CSV Import & Preview**: Validates schema integrity, email/phone uniqueness, and branch assignments.
 
-### 4. 👥 Role-Based Access Control (RBAC)
-- **Master Admin**: Full institutional oversight, Department & Division management, Staff approvals, Student Training Center, Permissions matrix, and Audit Logging.
-- **Director / Dean**: High-level cross-department attendance statistics, faculty performance indicators, and institutional trends.
+### 5. 👥 Role-Based Access Control (RBAC)
+- **Master Admin**: Institutional oversight, Department & Division management, Staff approvals, Student Training Center, Permissions matrix, and Audit Logging.
+- **Director / Dean**: Executive cross-department statistics, faculty performance indicators, and institutional trends.
 - **HOD (Head of Department)**: Department-level class performance analytics and subject oversight.
-- **Teacher**: Lecture scheduling, classroom image upload & AI attendance processing, manual overrides, discrepancy tracking, and CSV/Excel report exports.
+- **Teacher**: Lecture scheduling, classroom image upload & AI attendance processing, manual overrides, discrepancy tracking, and CSV/Excel exports.
 - **Student**: Personal attendance ledger, monthly participation charts, and subject-wise breakdown.
 
-### 5. 📊 Analytics & Reporting
-- Real-time weekly participation trends and faculty benchmark charts powered by **Chart.js**.
+### 6. 📊 Analytics & Reporting
+- Real-time weekly participation trends powered by **Chart.js**.
 - One-click export to **CSV** and **Excel** for division-wise and subject-wise attendance ledgers.
-- Tamper-proof session finalization preventing post-lecture alteration.
 
 ---
 
@@ -66,14 +77,15 @@
 │                           │                            │
 │  ┌────────────────────────▼─────────────────────────┐  │
 │  │              AI COMPUTER VISION ENGINE           │  │
-│  │  ai/detector.py    ──► YOLOv8 Person/Head Detect │  │
-│  │  ai/recognizer.py  ──► DeepFace 128-d Embeddings │  │
-│  │  Cosine Similarity ──► Distance Matrix Matching  │  │
+│  │  enhance_image_quality ──► Unsharp Mask + CLAHE  │  │
+│  │  ai/detector.py        ──► YOLOv8 + Haar Cascade │  │
+│  │  ai/recognizer.py      ──► DeepFace FaceNet 128-d│  │
+│  │  Cosine Matrix Match   ──► Vectorized Similarity │  │
 │  └──────────────────────────────────────────────────┘  │
 │                           │                            │
 │  ┌────────────────────────▼─────────────────────────┐  │
 │  │              DATABASE & PERSISTENCE              │  │
-│  │  SQLite / PostgreSQL (via Flask-SQLAlchemy)      │  │
+│  │  SQLite / MySQL (via Flask-SQLAlchemy)           │  │
 │  │  Users · Students · Departments · Classes        │  │
 │  │  StudentTrainingImages · AttendanceRecords       │  │
 │  └──────────────────────────────────────────────────┘  │
@@ -87,13 +99,13 @@
 | Layer | Technologies Used |
 |---|---|
 | **Backend Framework** | Python 3.9+, Flask 3.0, Werkzeug |
-| **ORM & Database** | Flask-SQLAlchemy 3.1, SQLite (default) / PostgreSQL |
+| **ORM & Database** | Flask-SQLAlchemy 3.1, SQLite / MySQL |
 | **Authentication** | Flask-Login (session-based with bcrypt password hashing) |
-| **Object Detection** | Ultralytics YOLOv8 Medium (`yolov8m.pt`) |
+| **Object Detection** | Ultralytics YOLOv8 Medium (`yolov8m.pt`) + OpenCV Haar Cascade |
 | **Face Recognition** | DeepFace, FaceNet (128-d vector embeddings) |
-| **Image Processing** | OpenCV (`cv2`), Pillow, NumPy |
+| **Image Restoration** | OpenCV (`cv2` Unsharp Masking, CLAHE, Laplacian Variance, Bicubic Rescaling), NumPy |
 | **Data Processing** | Pandas, OpenPyXL, CSV |
-| **Frontend UI** | Jinja2 Templates, Vanilla CSS Design System, FontAwesome 6 |
+| **Frontend UI** | Jinja2 Templates, Vanilla CSS Design Tokens, FontAwesome 6 |
 | **Data Visualization** | Chart.js 4.4 |
 
 ---
@@ -103,8 +115,8 @@
 ```
 YOLO_Attend/
 ├── ai/
-│   ├── detector.py             # YOLOv8 face detection & vector extraction
-│   └── recognizer.py           # Attendance matching & batch embedding generator
+│   ├── detector.py             # YOLOv8 face detection, OpenCV blur restoration & vector extraction
+│   └── recognizer.py           # Cosine matching engine & batch embedding generator
 ├── routes/
 │   ├── admin.py                # Admin portal, student training, staff & dept management
 │   ├── auth.py                 # Login, registration, session management
@@ -136,6 +148,7 @@ YOLO_Attend/
 ├── config.py                   # Database & application configurations
 ├── extensions.py               # Shared DB & LoginManager instances
 ├── download_models.py          # Script to pre-download YOLOv8 weights
+├── test_accuracy.py            # Quality check & detection benchmark script
 ├── requirements.txt            # Python dependencies
 └── README.md                   # Project documentation
 ```
@@ -181,7 +194,7 @@ python download_models.py
 ```bash
 python app.py
 ```
-Access the application in your browser at: **`http://127.0.0.1:5000`**
+Access the application in your browser at: **`http://127.0.0.1:3000`**
 
 ---
 
@@ -205,8 +218,8 @@ Upon initial startup, the database is pre-seeded with role-based demo accounts:
 2. Click **Student Training** in the sidebar.
 3. Use the top filters (Department, Class, Status, Search) to locate any student.
 4. Click **Manage Photos** on a student card:
-   - Drag and drop or browse multiple facial photos.
-   - Preview uploaded dataset photos or delete any poor-quality images.
+   - Drag and drop or browse 1–4 facial photos per student.
+   - Preview uploaded dataset photos or delete poor-quality images.
 5. Click **Train Student** to extract YOLO + FaceNet embeddings for that student, or click **Train All Students** on the top-right to batch-train the entire institution.
 6. Once marked as **Trained**, teachers can immediately upload classroom photos to identify those students during lecture attendance!
 
@@ -214,7 +227,7 @@ Upon initial startup, the database is pre-seeded with role-based demo accounts:
 
 ## 🧪 Testing & Verification
 
-Run the accuracy diagnostic script to test detection and encoding on sample classroom images:
+Run the accuracy diagnostic script to test quality scoring, unsharp blur sharpening, detection, and face encoding on sample classroom images:
 ```bash
 python test_accuracy.py path/to/classroom_photo.jpg
 ```

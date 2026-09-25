@@ -2,11 +2,11 @@ import os
 import sys
 import time
 import cv2
-from ai.detector import _get_yolo_model, detect_and_encode_faces
+from ai.detector import _get_yolo_model, detect_and_encode_faces, validate_image_quality, enhance_image_quality
 
 def test_image_accuracy(image_path, output_dir="test_output"):
     """
-    Test YOLO detection and face encoding accuracy on a test image.
+    Test YOLO detection, blur sharpening, and face encoding accuracy on a test image.
     Saves visual bounding boxes and extracted face crops.
     """
     if not os.path.exists(image_path):
@@ -20,28 +20,35 @@ def test_image_accuracy(image_path, output_dir="test_output"):
     print(f"\n--- Testing Accuracy on: {image_path} ---")
     start_time = time.time()
 
-    # 1. Load image & YOLO model
-    img = cv2.imread(image_path)
-    if img is None:
+    # 1. Load image & check quality
+    raw_img = cv2.imread(image_path)
+    if raw_img is None:
         print(f"Error: Could not open image {image_path}")
         return
 
+    val = validate_image_quality(raw_img)
+    print(f"[Quality Check] Score: {val['quality_score']}/100 | Blur Score: {val['blur_score']} | Res: {val['resolution']}")
+    if val['issues']:
+        print(f"  Diagnostics: {', '.join(val['issues'])}")
+
+    enhanced_img = enhance_image_quality(raw_img)
     model = _get_yolo_model()
     
     # 2. Run detection with upgraded settings
-    h, w = img.shape[:2]
-    scale = 3000 / w if w > 3000 else 1.0
-    img_detect = cv2.resize(img, (0, 0), fx=scale, fy=scale) if scale != 1.0 else img
+    h, w = enhanced_img.shape[:2]
+    max_dim = 1280
+    scale = max_dim / max(h, w) if max(h, w) > max_dim else 1.0
+    img_detect = cv2.resize(enhanced_img, (0, 0), fx=scale, fy=scale) if scale != 1.0 else enhanced_img
     
-    results = model(img_detect, conf=0.20, iou=0.45, imgsz=1280, classes=[0], verbose=False)
+    results = model(img_detect, conf=0.18, iou=0.45, imgsz=max_dim, classes=[0], verbose=False)
     boxes = results[0].boxes
 
     detect_time = time.time() - start_time
     print(f"[YOLO Detection] Found {len(boxes)} faces/people in {detect_time:.2f} seconds.")
 
     # 3. Draw bounding boxes and extract crops
-    annotated_img = img.copy()
-    orig_h, orig_w = img.shape[:2]
+    annotated_img = enhanced_img.copy()
+    orig_h, orig_w = enhanced_img.shape[:2]
     detect_h, detect_w = img_detect.shape[:2]
 
     for i, box in enumerate(boxes):
@@ -56,11 +63,11 @@ def test_image_accuracy(image_path, output_dir="test_output"):
 
         # Head region crop
         box_h = y2 - y1
-        head_y2 = y1 + int(box_h * 0.45) if box_h > 40 else y2
+        head_y2 = y1 + int(box_h * 0.50) if box_h > 40 else y2
 
-        pad = 10
-        crop = img[max(0, y1 - pad):min(orig_h, head_y2 + pad),
-                   max(0, x1 - pad):min(orig_w, x2 + pad)]
+        pad = 15
+        crop = enhanced_img[max(0, y1 - pad):min(orig_h, head_y2 + pad),
+                            max(0, x1 - pad):min(orig_w, x2 + pad)]
 
         # Save crop
         if crop.size > 0:

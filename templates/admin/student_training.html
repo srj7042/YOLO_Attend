@@ -446,6 +446,45 @@
         </div>
       </div>
 
+      <!-- Camera Auto-Burst & File Upload Action Bar -->
+      <div style="display: flex; gap: 10px; margin-bottom: 14px;">
+        <button class="btn bp" id="openCamBtn" onclick="openWebcam()" style="flex: 1; justify-content: center; font-size: 13px; background: #0F204C;">
+          <i class="fas fa-video"></i> <span>Open Live Camera (Auto-Burst Capture)</span>
+        </button>
+      </div>
+
+      <!-- Live Webcam Stream & Burst Container -->
+      <div id="cameraContainer" style="display: none; margin-bottom: 16px; background: var(--bg0); border-radius: 14px; border: 1px solid var(--b0); padding: 14px; text-align: center;">
+        <div style="position: relative; display: inline-block; width: 100%;">
+          <video id="cameraStream" autoplay playsinline style="width: 100%; max-height: 260px; object-fit: cover; border-radius: 10px; border: 1px solid var(--b0); background: #000;"></video>
+          <canvas id="burstCanvas" style="display: none;"></canvas>
+        </div>
+
+        <div id="burstStatusOverlay" style="font-size: 12.5px; font-weight: 700; color: var(--brand-l); margin: 10px 0 6px;">
+          Align student face in center & click Start Auto-Burst
+        </div>
+
+        <!-- Burst Progress Indicator -->
+        <div id="burstProgressContainer" style="display: none; margin-bottom: 12px;">
+          <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; margin-bottom: 4px;">
+            <span id="burstFrameCountText">Capturing 0/30</span>
+            <span id="burstProgressText">0%</span>
+          </div>
+          <div class="prog"><div class="prog-f" id="burstProgressBar" style="width: 0%; background: var(--brand-l);"></div></div>
+        </div>
+
+        <div id="cameraError" style="display: none; color: #EF4444; font-size: 12px; font-weight: 600; margin-bottom: 10px;"></div>
+
+        <div style="display: flex; gap: 10px; justify-content: center;">
+          <button class="btn bp" id="startBurstBtn" onclick="startCameraBurst()" style="font-size: 13px; padding: 8px 16px;">
+            <i class="fas fa-camera"></i> <span>Start Auto-Burst (30 Snapshots / 10s)</span>
+          </button>
+          <button class="btn bs" onclick="stopWebcam()" style="font-size: 13px; padding: 8px 14px;">
+            <i class="fas fa-xmark"></i> <span>Close Camera</span>
+          </button>
+        </div>
+      </div>
+
       <!-- Drag and Drop Upload Zone -->
       <div class="upload-dropzone" id="dropzone" onclick="document.getElementById('photoFileInput').click()">
         <input type="file" id="photoFileInput" multiple accept="image/png, image/jpeg, image/jpg, image/webp" style="display: none;" onchange="handleFileSelect(this.files)">
@@ -582,6 +621,142 @@ function showToast(message, type = 'success') {
 // ==========================================
 // 3. PHOTO MANAGEMENT & VALIDATION MODAL
 // ==========================================
+let webcamStream = null;
+let burstInterval = null;
+let isBurstCapturing = false;
+
+async function openWebcam() {
+  const videoEl = document.getElementById('cameraStream');
+  const camContainer = document.getElementById('cameraContainer');
+  const camError = document.getElementById('cameraError');
+  camError.style.display = 'none';
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    camError.innerText = 'Webcam API not supported in your browser or requires secure context (HTTPS/localhost).';
+    camError.style.display = 'block';
+    camContainer.style.display = 'block';
+    return;
+  }
+
+  try {
+    webcamStream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+      audio: false
+    });
+    videoEl.srcObject = webcamStream;
+    camContainer.style.display = 'block';
+    document.getElementById('openCamBtn').style.display = 'none';
+  } catch (err) {
+    camError.innerText = 'Unable to access live camera: ' + err.message;
+    camError.style.display = 'block';
+    camContainer.style.display = 'block';
+  }
+}
+
+function stopWebcam() {
+  if (burstInterval) {
+    clearInterval(burstInterval);
+    burstInterval = null;
+  }
+  isBurstCapturing = false;
+  if (webcamStream) {
+    webcamStream.getTracks().forEach(track => track.stop());
+    webcamStream = null;
+  }
+  const videoEl = document.getElementById('cameraStream');
+  if (videoEl) videoEl.srcObject = null;
+  document.getElementById('cameraContainer').style.display = 'none';
+  document.getElementById('openCamBtn').style.display = 'inline-flex';
+  document.getElementById('burstProgressContainer').style.display = 'none';
+}
+
+async function startCameraBurst() {
+  if (!webcamStream || isBurstCapturing || !currentModalStudentId) return;
+
+  const videoEl = document.getElementById('cameraStream');
+  const canvasEl = document.getElementById('burstCanvas');
+  const ctx = canvasEl.getContext('2d');
+  
+  const progContainer = document.getElementById('burstProgressContainer');
+  const progBar = document.getElementById('burstProgressBar');
+  const progText = document.getElementById('burstProgressText');
+  const countText = document.getElementById('burstFrameCountText');
+  const statusOverlay = document.getElementById('burstStatusOverlay');
+  const startBtn = document.getElementById('startBurstBtn');
+
+  isBurstCapturing = true;
+  startBtn.disabled = true;
+  progContainer.style.display = 'block';
+  
+  const totalFrames = 30;
+  const burstDurationMs = 10000;
+  const intervalMs = burstDurationMs / totalFrames; // 333ms per snapshot
+  
+  let capturedFiles = [];
+  let frameCount = 0;
+  const startTime = Date.now();
+
+  burstInterval = setInterval(async () => {
+    frameCount++;
+    const elapsedSec = ((Date.now() - startTime) / 1000).toFixed(1);
+    const pct = Math.round((frameCount / totalFrames) * 100);
+    
+    progBar.style.width = pct + '%';
+    progText.innerText = `${pct}%`;
+    countText.innerText = `Capturing ${frameCount}/${totalFrames}`;
+    statusOverlay.innerText = `📸 Capturing Frame ${frameCount}/${totalFrames} (${elapsedSec}s) — Turn head slightly...`;
+
+    // Capture frame to canvas
+    canvasEl.width = videoEl.videoWidth || 1280;
+    canvasEl.height = videoEl.videoHeight || 720;
+    ctx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
+
+    // Convert canvas snapshot to Blob & File
+    await new Promise((resolve) => {
+      canvasEl.toBlob((blob) => {
+        if (blob) {
+          const file = new File([blob], `cam_burst_${frameCount}.jpg`, { type: 'image/jpeg' });
+          capturedFiles.push(file);
+        }
+        resolve();
+      }, 'image/jpeg', 0.92);
+    });
+
+    if (frameCount >= totalFrames) {
+      clearInterval(burstInterval);
+      burstInterval = null;
+
+      // Sample 10 optimal keyframes evenly across the 30 captured snapshots
+      let keyframeFiles = [];
+      if (capturedFiles.length > 10) {
+        const step = (capturedFiles.length - 1) / 9;
+        for (let k = 0; k < 10; k++) {
+          const idx = Math.min(capturedFiles.length - 1, Math.round(k * step));
+          keyframeFiles.push(capturedFiles[idx]);
+        }
+      } else {
+        keyframeFiles = capturedFiles;
+      }
+
+      statusOverlay.innerText = '⚡ Step 2/3: Uploading keyframe dataset...';
+
+      setTimeout(async () => {
+        if (keyframeFiles.length > 0) {
+          await handleFileSelect(keyframeFiles, true);
+          statusOverlay.innerText = '🤖 Step 3/3: Training YOLO + FaceNet AI Model...';
+          await trainModalStudent();
+          statusOverlay.innerText = '✅ Student Model Trained Successfully!';
+        }
+        setTimeout(() => {
+          isBurstCapturing = false;
+          startBtn.disabled = false;
+          stopWebcam();
+        }, 800);
+      }, 300);
+    }
+  }, intervalMs);
+}
+
 async function openPhotoModal(studentId) {
   currentModalStudentId = studentId;
   const modal = document.getElementById('photoModal');
@@ -592,6 +767,7 @@ async function openPhotoModal(studentId) {
 }
 
 function closePhotoModal() {
+  stopWebcam();
   const modal = document.getElementById('photoModal');
   modal.classList.remove('open');
   currentModalStudentId = null;
@@ -696,7 +872,7 @@ dropzone.addEventListener('drop', (e) => {
   }
 });
 
-async function handleFileSelect(files) {
+async function handleFileSelect(files, skipRefresh = false) {
   if (!files || files.length === 0 || !currentModalStudentId) return;
 
   const formData = new FormData();
@@ -724,7 +900,9 @@ async function handleFileSelect(files) {
 
     if (res.ok && result.success) {
       showToast(result.message, 'success');
-      await refreshModalGallery(currentModalStudentId);
+      if (!skipRefresh) {
+        await refreshModalGallery(currentModalStudentId);
+      }
       updateCardUI(currentModalStudentId, result.photo_count, result.training_status, result.has_embeddings);
       updateTotalStats();
     } else {
