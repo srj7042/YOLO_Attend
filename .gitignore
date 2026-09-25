@@ -6,7 +6,11 @@ venv/
 __pycache__/
 *.pyc
 
-# User Data & Student Photos
+# Machine Learning Model Weights
+*.pt
+
+# User Data & Student Photos / Databases
 uploads/
 instance/
 *.db
+iii.jpg
