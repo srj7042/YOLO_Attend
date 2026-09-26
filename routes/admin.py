@@ -85,8 +85,8 @@ def dashboard():
             'email': s.email or '-',
             'branch': s.branch or 'General',
             'class_name': s.class_ref.full_name if s.class_ref else 'Unassigned',
-            'has_face': (s.photo_count or 0) > 0,
-            'photo_count': s.photo_count or 0,
+            'has_face': bool((s.photo_count or 0) > 0 or s.has_embeddings),
+            'photo_count': s.image_count,
             'attendance_pct': pct,
             'total_attendance': total_att
         })
@@ -574,22 +574,50 @@ def reject_student(id):
 @admin_required
 def upload_photo(student_id):
     from ai.detector import detect_and_encode_faces
-    import os
     student = Student.query.get_or_404(student_id)
     files = request.files.getlist('photos')
+    if not files or len(files) == 0:
+        return jsonify({'success': False, 'error': 'No photos provided.'}), 400
+
+    upload_dir = os.path.join(Config.UPLOAD_FOLDER, 'training_images', f'student_{student.id}')
+    os.makedirs(upload_dir, exist_ok=True)
+
+    allowed_exts = {'png', 'jpg', 'jpeg', 'webp'}
     all_encodings = student.get_encoding()
+    saved_images_count = 0
 
     for f in files:
-        if f and f.filename:
-            import tempfile
-            path = os.path.join(tempfile.gettempdir(), f'student_{student_id}_{f.filename}')
-            f.save(path)
-            encs = detect_and_encode_faces(path)
-            all_encodings.extend(encs)
-            os.remove(path)
+        if not f or not f.filename:
+            continue
+        ext = f.filename.rsplit('.', 1)[-1].lower() if '.' in f.filename else ''
+        if ext not in allowed_exts:
+            continue
+
+        safe_orig = secure_filename(f.filename) or 'photo.jpg'
+        unique_name = f"{uuid.uuid4().hex[:8]}_{safe_orig}"
+        file_path = os.path.join(upload_dir, unique_name)
+        f.save(file_path)
+
+        train_img = StudentTrainingImage(
+            student_id=student.id,
+            filename=unique_name,
+            filepath=file_path
+        )
+        db.session.add(train_img)
+        saved_images_count += 1
+
+        try:
+            encs = detect_and_encode_faces(file_path)
+            if encs:
+                all_encodings.extend(encs)
+        except Exception as e:
+            print(f"[WARN] Error encoding face from {file_path}: {e}")
 
     student.set_encoding(all_encodings)
-    student.photo_count = len(files)
+    db.session.flush()
+    student.photo_count = StudentTrainingImage.query.filter_by(student_id=student.id).count()
+    if student.has_embeddings:
+        student.training_status = 'Trained'
     db.session.commit()
     return jsonify({'success': True, 'count': len(all_encodings)})
 
@@ -1189,6 +1217,13 @@ def get_student_avatar(student_id):
     latest_img = StudentTrainingImage.query.filter_by(student_id=student.id).order_by(StudentTrainingImage.uploaded_at.desc()).first()
     if latest_img and os.path.exists(latest_img.filepath):
         return send_file(latest_img.filepath)
+    # Check folder on disk directly in case images exist without DB entry
+    for folder_rel in [os.path.join('training_images', f'student_{student.id}'), f'student_{student.id}']:
+        folder = os.path.join(Config.UPLOAD_FOLDER, folder_rel)
+        if os.path.isdir(folder):
+            files = [f for f in os.listdir(folder) if f.lower().endswith(('.png', '.jpg', '.jpeg', '.webp'))]
+            if files:
+                return send_file(os.path.join(folder, files[-1]))
     return redirect(f"https://ui-avatars.com/api/?name={student.name}&background=0F204C&color=fff&size=128")
 
 

@@ -689,7 +689,12 @@
           <tr class="stu-row" data-name="{{ st.name|lower }}" data-id="{{ st.student_id|lower }}" data-roll="{{ st.roll_number|lower }}" data-class="{{ st.class_name|lower }}" data-branch="{{ st.branch|lower }}" data-face="{% if st.has_face %}ready{% else %}missing{% endif %}">
             <td>
               <div class="stu-info">
-                <div class="stu-avatar">
+                <img src="{{ url_for('admin.get_student_avatar', student_id=st.id) }}"
+                     class="stu-avatar"
+                     style="object-fit: cover; border: 1.5px solid var(--b0);"
+                     alt="{{ st.name }}"
+                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <div class="stu-avatar" style="display: none;">
                   {{ st.name[:2]|upper }}
                 </div>
                 <div>
