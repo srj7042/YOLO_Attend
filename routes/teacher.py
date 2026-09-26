@@ -592,6 +592,20 @@ def mark_attendance():
         flash('Classroom images processed and attendance marked!' if not is_retry else 'Deep Scan completed with higher precision!', 'success')
         return redirect(url_for('teacher.mark_attendance', subject_id=subject_id, date=attendance_date))
 
+    return render_template('teacher/mark_attendance.html', 
+                           approved_subjects=approved_subjects, 
+                           approved_dates=approved_dates,
+                           current_slots=current_slots,
+                           subject=subject, 
+                           student_data=student_data, 
+                           att_date=att_date_str,
+                           is_processed=is_processed,
+                           is_finalized=is_finalized,
+                           is_window_valid=is_window_valid,
+                           window_min=min_window_date.strftime('%Y-%m-%d'),
+                           window_max=max_window_date.strftime('%Y-%m-%d'),
+                           today=today_str)
+
 
 def run_attendance_background_job(job_id, app, teacher_id, subject_id, att_date_obj, lecture_time, all_session_photos, is_retry):
     with app.app_context():
@@ -712,20 +726,6 @@ def attendance_job_status(job_id):
     if not job:
         return jsonify({'success': False, 'error': 'Job not found'}), 404
     return jsonify({'success': True, 'job': job})
-
-    return render_template('teacher/mark_attendance.html', 
-                           approved_subjects=approved_subjects, 
-                           approved_dates=approved_dates,
-                           current_slots=current_slots,
-                           subject=subject, 
-                           student_data=student_data, 
-                           att_date=att_date_str,
-                           is_processed=is_processed,
-                           is_finalized=is_finalized,
-                           is_window_valid=is_window_valid,
-                           window_min=min_window_date.strftime('%Y-%m-%d'),
-                           window_max=max_window_date.strftime('%Y-%m-%d'),
-                           today=today_str)
 
 @teacher_bp.route('/finalize-attendance', methods=['POST'])
 @login_required
