@@ -52,7 +52,7 @@ class StudentBiometricIndex:
     def is_empty(self):
         return self.matrix.shape[0] == 0
 
-    def match_faces_batch(self, detected_encodings, threshold=0.84, img_idx=0):
+    def match_faces_batch(self, detected_encodings, threshold=0.55, img_idx=0):
         """
         Match detected face encodings against the indexed student matrix using a single matrix dot product.
         Returns list of candidate matches: [{'student_id', 'confidence', 'face_id'}]
@@ -100,12 +100,12 @@ class StudentBiometricIndex:
         return candidates
 
 
-def process_attendance(image_paths, students, threshold=0.84, deep_scan=False, progress_callback=None):
+def process_attendance(image_paths, students, threshold=0.55, deep_scan=False, progress_callback=None):
     """
     Process classroom photos and match detected faces against student biometrics.
     Uses StudentBiometricIndex for high-speed vectorized BLAS similarity computations.
     """
-    effective_threshold = 0.88 if deep_scan else threshold
+    effective_threshold = 0.58 if deep_scan else threshold
 
     results = {s.id: {'status': 'absent', 'confidence': 0.0, 'name': s.name,
                        'student_id': s.student_id} for s in students}

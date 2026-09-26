@@ -3,6 +3,31 @@ import json
 import numpy as np
 import traceback
 
+# TensorFlow 2.22 / tf-keras compatibility shim
+try:
+    import tensorflow as tf
+    if hasattr(tf, 'compat') and hasattr(tf.compat, 'v2') and hasattr(tf.compat.v2, '__internal__'):
+        if not hasattr(tf.compat.v2.__internal__, 'register_load_context_function'):
+            setattr(
+                tf.compat.v2.__internal__,
+                'register_load_context_function',
+                getattr(tf.compat.v2.__internal__, 'register_call_context_function', lambda x: None)
+            )
+except Exception:
+    pass
+
+def _get_cascade_path():
+    """Safely resolve Haar cascade XML path if available in environment."""
+    try:
+        import cv2
+        if hasattr(cv2, 'data') and hasattr(cv2.data, 'haarcascades') and cv2.data.haarcascades:
+            p = os.path.join(cv2.data.haarcascades, 'haarcascade_frontalface_default.xml')
+            if os.path.exists(p):
+                return p
+    except Exception:
+        pass
+    return None
+
 # Cache models at module level to avoid reloading on every call
 _yolo_model = None
 
@@ -212,8 +237,8 @@ def extract_face_crop_yolo(img, box, orig_shape, detect_shape, deep_scan=False):
     if box_w * box_h > 0.55 * (orig_w * orig_h):
         try:
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            cascade_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
-            if os.path.exists(cascade_path):
+            cascade_path = _get_cascade_path()
+            if cascade_path and os.path.exists(cascade_path):
                 face_cascade = cv2.CascadeClassifier(cascade_path)
                 faces = face_cascade.detectMultiScale(gray, scaleFactor=1.08, minNeighbors=3, minSize=(30, 30))
                 if len(faces) > 0:
@@ -236,8 +261,8 @@ def extract_face_crop_yolo(img, box, orig_shape, detect_shape, deep_scan=False):
         # Refine crop to exact facial features using OpenCV Haar Cascade
         try:
             gray_head = cv2.cvtColor(head_crop, cv2.COLOR_BGR2GRAY)
-            cascade_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
-            if os.path.exists(cascade_path):
+            cascade_path = _get_cascade_path()
+            if cascade_path and os.path.exists(cascade_path):
                 face_cascade = cv2.CascadeClassifier(cascade_path)
                 faces = face_cascade.detectMultiScale(gray_head, scaleFactor=1.08, minNeighbors=3, minSize=(18, 18))
                 if len(faces) > 0:
@@ -308,8 +333,8 @@ def detect_and_encode_faces(image_path, deep_scan=False):
         if not face_crops:
             try:
                 gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-                cascade_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
-                if os.path.exists(cascade_path):
+                cascade_path = _get_cascade_path()
+                if cascade_path and os.path.exists(cascade_path):
                     face_cascade = cv2.CascadeClassifier(cascade_path)
                     faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=3, minSize=(30, 30))
                     for (fx, fy, fw, fh) in faces:
@@ -435,8 +460,8 @@ def train_student_biometrics(image_paths, max_embeddings=15):
             if not face_crops:
                 try:
                     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-                    cascade_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
-                    if os.path.exists(cascade_path):
+                    cascade_path = _get_cascade_path()
+                    if cascade_path and os.path.exists(cascade_path):
                         face_cascade = cv2.CascadeClassifier(cascade_path)
                         faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=3, minSize=(30, 30))
                         if len(faces) > 0:
