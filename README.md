@@ -29,7 +29,10 @@
   - **Bicubic Crop Upscaling**: Automatically rescales small or distant face crops ($<160\times 160\text{px}$) to standard resolution with edge enhancement.
   - **OpenCV Haar Cascade Fallback**: Auto-triggers Haar Cascade frontal face detection if YOLO yields zero boxes on extremely blurry images.
 - **Deep Biometric Embeddings**: Generates 128-dimensional L2-normalized facial vectors via FaceNet.
-- **Quality-Aware Cosine Matching**: Vectorized matrix dot-product comparison against stored biometrics (Threshold: $\ge 0.55$; Deep Scan $\ge 0.58$).
+- **Vectorized BLAS Cosine Search (`StudentBiometricIndex`)**: Stacks all enrolled student face encodings into a single contiguous matrix in memory and performs a single BLAS matrix dot product (`(N_detected, 128) @ (128, Total_Enrolled)`), evaluating hundreds of biometric vectors in under 5 milliseconds.
+- **Calibrated Matching Thresholds**: Calibrated cosine similarity threshold ($\ge 0.55$; Deep Scan $\ge 0.58$) with ensemble top-3 scoring and 1-to-1 greedy face allocation.
+- **Asynchronous Processing with Live Modal Progress**: Offline attendance execution via `AttendanceJobManager` (`ThreadPoolExecutor`), eliminating HTTP request timeouts and streaming live detection, extraction, and matching progress to the browser modal.
+- **WebP Storage & Fast Thumbnails**: Automatically converts uploaded photos into lightweight WebP format and creates 160×160 thumbnails for fast loading across dashboards.
 - **Deep Scan Retry**: Enhanced secondary scan pass with lower detection thresholds (`conf=0.12`) and expanded crop padding (`pad=20`px) for difficult lighting or partial face occlusions.
 
 ### 2. 📸 Biometric Training & Image Requirements
@@ -101,19 +104,33 @@
 
 ---
 
-## 🛠️ Technology Stack
+## 🛠️ Complete Technology Stack
 
-| Layer | Technologies Used |
-|---|---|
-| **Backend Framework** | Python 3.9+, Flask 3.0, Werkzeug |
-| **ORM & Database** | Flask-SQLAlchemy 3.1, SQLite / MySQL |
-| **Authentication** | Flask-Login (session-based with bcrypt password hashing) |
-| **Object Detection** | Ultralytics YOLOv8 Medium (`yolov8m.pt`) + OpenCV Haar Cascade |
-| **Face Recognition** | DeepFace, FaceNet (128-d vector embeddings) |
-| **Image Restoration** | OpenCV (`cv2` Unsharp Masking, CLAHE, Laplacian Variance, Bicubic Rescaling), NumPy |
-| **Data Processing** | Pandas, OpenPyXL, CSV |
-| **Frontend UI** | Jinja2 Templates, Vanilla CSS Design Tokens, FontAwesome 6 |
-| **Data Visualization** | Chart.js 4.4 |
+| Layer | Technology | Version / Spec | Purpose in SmartAttend |
+|---|---|---|---|
+| **Backend Web Framework** | **Python** | `3.9` - `3.14+` | Core programming language |
+| | **Flask** | `>= 3.0.0` | Lightweight WSGI web application framework & REST routing |
+| | **Werkzeug** | `>= 3.0.1` | HTTP utilities, secure filename validation, password hashing |
+| | **Flask-Login** | `>= 0.6.3` | User session management and RBAC authentication |
+| | **Flask-WTF / WTForms** | `>= 1.2.1` | Form validation and CSRF protection |
+| **Object & Face Detection** | **Ultralytics YOLOv8** | `YOLOv8m` (`yolov8m.pt`) | Deep learning object detector for dense crowd & classroom student localization (`classes=[0]`) |
+| | **OpenCV Haar Cascade** | `haarcascade_frontalface_default` | Secondary fallback face detector for severely blurred images |
+| **Face Recognition & Biometrics** | **DeepFace** | `>= 0.0.90` | Unified face recognition pipeline wrapper |
+| | **FaceNet** | 128-dimensional | Google FaceNet architecture mapping facial crops into $L_2$-normalized unit hypersphere vectors |
+| | **TensorFlow** | `>= 2.15.0` | Deep learning backbone executing FaceNet weight graphs |
+| | **tf-keras** | `>= 2.15.0` | Legacy Keras execution layer with custom runtime compatibility shim |
+| **Computer Vision & Image Restoration** | **OpenCV (`cv2`)** | `>= 4.8.0` | Laplacian blur detection, CLAHE contrast adjustment, unsharp masking, bicubic upscaling |
+| | **Pillow (PIL)** | `>= 10.0.0` | WebP compression (saving ~70% disk space), EXIF orientation handling, 160×160 avatar generation |
+| **High-Performance Vector Math** | **NumPy** | `>= 1.24.0` | BLAS-accelerated matrix multiplication (`StudentBiometricIndex`) for instant cosine similarity search |
+| **Asynchronous Job Management** | **Python ThreadPoolExecutor** | Built-in concurrent worker | Non-blocking background worker (`AttendanceJobManager`) preventing HTTP request timeouts |
+| **Database & Persistence** | **Flask-SQLAlchemy** | `>= 3.1.1` | Declarative ORM abstraction layer |
+| | **SQLite / PostgreSQL / MySQL** | `psycopg2-binary>=2.9.9` | Relational database storage for users, classes, biometrics, and attendance logs |
+| **Data Processing & Export** | **Pandas** | `>= 2.0.0` | Tabular data manipulation for student ledgers and reports |
+| | **OpenPyXL** | `>= 3.1.0` | Automated styled Microsoft Excel (`.xlsx`) ledger export |
+| **Frontend UI / UX** | **Jinja2** | Integrated | Server-rendered dynamic HTML templates |
+| | **Vanilla CSS Design Tokens** | Custom Glassmorphism | Dark/light hybrid theme with smooth micro-animations and zero bloat |
+| | **FontAwesome** | `v6.5` | Iconography throughout all 5 role dashboards |
+| | **Chart.js** | `v4.4` | Interactive SVG/Canvas charts for institutional attendance metrics and trends |
 
 ---
 
