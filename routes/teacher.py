@@ -1,12 +1,14 @@
 from flask import Blueprint, render_template, redirect, url_for, request, flash, jsonify, send_file
 from flask_login import login_required, current_user
 from functools import wraps
-from models import User, Class, Subject, Student, AttendanceRecord, ApprovalRequest, Department
+from models import User, Class, Subject, Student, StudentTrainingImage, AttendanceRecord, ApprovalRequest, Department
 from extensions import db
 from datetime import datetime, date, timedelta
 import csv, io, json, os, pandas as pd
 from werkzeug.utils import secure_filename
 from config import Config
+from utils.image_utils import save_and_optimize_student_photo, is_allowed_image
+from utils.job_manager import attendance_jobs
 
 teacher_bp = Blueprint('teacher', __name__)
 
@@ -395,21 +397,41 @@ def import_students_csv(subject_id):
 @login_required
 @teacher_required
 def upload_student_photo(student_id):
-    student = Student.query.get_or_404(student_id); photos = request.files.getlist('photos')
-    saved_paths = []; folder = os.path.join(Config.UPLOAD_FOLDER, f'student_{student_id}'); os.makedirs(folder, exist_ok=True)
+    student = Student.query.get_or_404(student_id)
+    photos = request.files.getlist('photos')
+    folder = os.path.join(Config.UPLOAD_FOLDER, 'training_images', f'student_{student_id}')
+    saved_paths = []
+
     for photo in photos:
-        if photo and photo.filename:
-            path = os.path.join(folder, secure_filename(photo.filename)); photo.save(path); saved_paths.append(path)
+        if photo and photo.filename and is_allowed_image(photo.filename):
+            try:
+                opt_path, thumb_path, unique_name = save_and_optimize_student_photo(photo, folder)
+                train_img = StudentTrainingImage(
+                    student_id=student.id,
+                    filename=unique_name,
+                    filepath=opt_path
+                )
+                db.session.add(train_img)
+                saved_paths.append(opt_path)
+            except Exception as e:
+                print(f"[WARN] Failed to optimize student photo: {e}")
+
     if saved_paths:
         try:
             from ai.recognizer import generate_face_embeddings
             embeddings = generate_face_embeddings(saved_paths)
             if embeddings:
                 existing = student.get_encoding()
-                if existing and isinstance(existing[0], (int, float)): existing = [existing]
+                if existing and isinstance(existing[0], (int, float)):
+                    existing = [existing]
                 student.set_encoding((existing or []) + embeddings)
-        except: pass
-        student.photo_count = (student.photo_count or 0) + len(saved_paths); db.session.commit()
+                student.training_status = 'Trained'
+        except Exception as e:
+            print(f"[WARN] Error generating embeddings: {e}")
+
+        db.session.flush()
+        student.photo_count = StudentTrainingImage.query.filter_by(student_id=student.id).count()
+        db.session.commit()
         return jsonify({'success': True, 'photos': student.photo_count})
     return jsonify({'error': 'No photos saved'}), 400
 
@@ -569,6 +591,127 @@ def mark_attendance():
         db.session.commit()
         flash('Classroom images processed and attendance marked!' if not is_retry else 'Deep Scan completed with higher precision!', 'success')
         return redirect(url_for('teacher.mark_attendance', subject_id=subject_id, date=attendance_date))
+
+
+def run_attendance_background_job(job_id, app, teacher_id, subject_id, att_date_obj, lecture_time, all_session_photos, is_retry):
+    with app.app_context():
+        try:
+            subject = Subject.query.get(subject_id)
+            if not subject:
+                attendance_jobs.fail_job(job_id, f"Subject with ID {subject_id} not found.")
+                return
+
+            students = Student.query.filter_by(class_id=subject.class_id).all()
+            if not students:
+                attendance_jobs.fail_job(job_id, "No students enrolled in this class.")
+                return
+
+            def progress_cb(pct, msg):
+                attendance_jobs.update_job(job_id, pct, msg)
+
+            from ai.recognizer import process_attendance
+            results = process_attendance(
+                all_session_photos,
+                students,
+                deep_scan=is_retry,
+                progress_callback=progress_cb
+            )
+
+            progress_cb(90, "Recording results into database...")
+            present_count = 0
+            for s in students:
+                res = results.get(s.id, {'status': 'absent', 'confidence': 0.0})
+                if res['status'] == 'present':
+                    present_count += 1
+
+                existing = AttendanceRecord.query.filter_by(student_id=s.id, subject_id=subject_id, date=att_date_obj).first()
+                if existing:
+                    existing.status = res['status']
+                    existing.ai_confidence = res.get('confidence', 0.0)
+                    existing.method = 'yolo' if not is_retry else 'yolo (deep)'
+                    if lecture_time:
+                        existing.time_slot = lecture_time
+                else:
+                    db.session.add(AttendanceRecord(
+                        student_id=s.id,
+                        subject_id=subject_id,
+                        date=att_date_obj,
+                        time_slot=lecture_time,
+                        status=res['status'],
+                        marked_by=teacher_id,
+                        method='yolo' if not is_retry else 'yolo (deep)',
+                        ai_confidence=res.get('confidence', 0.0)
+                    ))
+
+            db.session.commit()
+            attendance_jobs.complete_job(job_id, {
+                'total_students': len(students),
+                'present_count': present_count,
+                'absent_count': len(students) - present_count,
+                'redirect_url': url_for('teacher.mark_attendance', subject_id=subject_id, date=att_date_obj.strftime('%Y-%m-%d'))
+            })
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            attendance_jobs.fail_job(job_id, str(e))
+
+
+@teacher_bp.route('/mark-attendance-async', methods=['POST'])
+@login_required
+@teacher_required
+def mark_attendance_async():
+    from flask import current_app
+    subject_id = request.form.get('subject_id', type=int)
+    attendance_date = request.form.get('date')
+    lecture_time = request.form.get('time')
+    photos = request.files.getlist('photos')
+    is_retry = request.form.get('retry') == '1'
+
+    if not subject_id or not attendance_date:
+        return jsonify({'success': False, 'error': 'Please select a subject and valid date.'}), 400
+
+    try:
+        att_date_obj = datetime.strptime(attendance_date, '%Y-%m-%d').date()
+    except ValueError:
+        return jsonify({'success': False, 'error': 'Invalid date format.'}), 400
+
+    session_folder = os.path.join(Config.UPLOAD_FOLDER, 'sessions', f'{subject_id}_{attendance_date}')
+    os.makedirs(session_folder, exist_ok=True)
+
+    if photos and len(photos) > 0 and photos[0].filename:
+        for photo in photos:
+            if photo and photo.filename:
+                path = os.path.join(session_folder, secure_filename(photo.filename))
+                photo.save(path)
+
+    all_session_photos = [
+        os.path.join(session_folder, f) for f in os.listdir(session_folder)
+        if f.lower().endswith(('.png', '.jpg', '.jpeg', '.webp'))
+    ]
+
+    if not all_session_photos:
+        return jsonify({'success': False, 'error': 'No classroom photos uploaded for this session.'}), 400
+
+    job_id = attendance_jobs.create_job()
+    app = current_app._get_current_object()
+    teacher_id = current_user.id
+
+    attendance_jobs.submit_task(
+        run_attendance_background_job,
+        job_id, app, teacher_id, subject_id, att_date_obj, lecture_time, all_session_photos, is_retry
+    )
+
+    return jsonify({'success': True, 'job_id': job_id})
+
+
+@teacher_bp.route('/attendance-job-status/<job_id>', methods=['GET'])
+@login_required
+@teacher_required
+def attendance_job_status(job_id):
+    job = attendance_jobs.get_job(job_id)
+    if not job:
+        return jsonify({'success': False, 'error': 'Job not found'}), 404
+    return jsonify({'success': True, 'job': job})
 
     return render_template('teacher/mark_attendance.html', 
                            approved_subjects=approved_subjects, 

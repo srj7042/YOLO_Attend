@@ -172,6 +172,28 @@
         </div>
     </div>
 
+    <!-- AI Processing Progress Modal -->
+    <div id="aiProgressModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(12,15,26,0.75); backdrop-filter:blur(8px); z-index:9999; align-items:center; justify-content:center;">
+        <div style="background:var(--bg1); border:1px solid var(--b1); border-radius:20px; padding:32px; max-width:440px; width:90%; box-shadow:0 24px 60px rgba(0,0,0,0.35); text-align:center;">
+            <div style="width:64px; height:64px; border-radius:50%; background:rgba(15,32,76,0.08); display:flex; align-items:center; justify-content:center; margin:0 auto 16px; font-size:28px; color:var(--brand);">
+                <i class="fas fa-brain fa-pulse"></i>
+            </div>
+            <div style="font-family:var(--font-heading); font-size:20px; font-weight:800; color:var(--t0); margin-bottom:6px;">
+                AI Facial Processing
+            </div>
+            <div id="aiProgressMessage" style="font-size:13px; color:var(--t2); margin-bottom:20px; min-height:36px; line-height:1.4;">
+                Preparing classroom images...
+            </div>
+            <div style="width:100%; height:10px; background:var(--bg3); border-radius:10px; overflow:hidden; margin-bottom:12px; border:1px solid var(--b0);">
+                <div id="aiProgressBar" style="width:5%; height:100%; background:linear-gradient(90deg, var(--brand), var(--accent)); transition:width 0.3s ease; border-radius:10px;"></div>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:700; color:var(--t2);">
+                <span>STATUS</span>
+                <span id="aiProgressPercent">5%</span>
+            </div>
+        </div>
+    </div>
+
     <!-- Right Column: Roster -->
     <div class="console-card roster-card">
         <div class="roster-header">
@@ -272,22 +294,17 @@ function updateFilters() {
 }
 
 function tryAgainDeep() {
-    const form = document.getElementById('visionForm');
-    const retryInput = document.createElement('input');
-    retryInput.type = 'hidden';
-    retryInput.name = 'retry';
-    retryInput.value = '1';
-    form.appendChild(retryInput);
-    
-    document.getElementById('tryAgainBtn').innerHTML = '<span><i class="fas fa-spinner fa-spin"></i> Deep Scanning...</span>';
-    document.getElementById('tryAgainBtn').disabled = true;
-    
-    // Ensure form values are synced
-    document.getElementById('formSubjectId').value = document.getElementById('subjectFilter').value;
-    document.getElementById('formDate').value = document.getElementById('dateFilter').value;
-    document.getElementById('formTime').value = document.getElementById('timeFilter').value;
-    
-    form.submit();
+    const sid = document.getElementById('subjectFilter').value;
+    const date = document.getElementById('dateFilter').value;
+    if(!sid || !date) { alert('Please select a subject and date first!'); return; }
+
+    const formData = new FormData();
+    formData.append('subject_id', sid);
+    formData.append('date', date);
+    formData.append('time', document.getElementById('timeFilter').value || '');
+    formData.append('retry', '1');
+
+    startAsyncAttendance(formData);
 }
 
 async function finalizeSession() {
@@ -366,18 +383,91 @@ function exportData(type) {
     window.location.href = `/teacher/records/export?subject_id=${sid}&date=${date}&type=${type}`;
 }
 
-document.getElementById('visionForm').onsubmit = function() {
+document.getElementById('visionForm').onsubmit = function(e) {
+    e.preventDefault();
     const sid = document.getElementById('subjectFilter').value;
     if(!sid) { alert('Please select a subject first!'); return false; }
     
-    document.getElementById('formSubjectId').value = sid;
-    document.getElementById('formDate').value = document.getElementById('dateFilter').value;
-    document.getElementById('formTime').value = document.getElementById('timeFilter').value;
-    
-    const btn = document.getElementById('processBtn');
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analyzing Faces...';
-    btn.disabled = true;
+    const fileInput = document.getElementById('classroomPhoto');
+    if(!fileInput.files || fileInput.files.length === 0) {
+        alert('Please select or drop at least one classroom photo.');
+        return false;
+    }
+
+    const formData = new FormData();
+    formData.append('subject_id', sid);
+    formData.append('date', document.getElementById('dateFilter').value);
+    formData.append('time', document.getElementById('timeFilter').value);
+    for(let i = 0; i < fileInput.files.length; i++) {
+        formData.append('photos', fileInput.files[i]);
+    }
+
+    startAsyncAttendance(formData);
+    return false;
 };
+
+async function startAsyncAttendance(formData) {
+    const modal = document.getElementById('aiProgressModal');
+    const bar = document.getElementById('aiProgressBar');
+    const msg = document.getElementById('aiProgressMessage');
+    const pct = document.getElementById('aiProgressPercent');
+
+    modal.style.display = 'flex';
+    bar.style.width = '10%';
+    pct.innerText = '10%';
+    msg.innerText = 'Uploading classroom photos to AI server...';
+
+    try {
+        const res = await fetch('/teacher/mark-attendance-async', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await res.json();
+        if(!data.success) {
+            modal.style.display = 'none';
+            alert('Error: ' + (data.error || 'Failed to start AI processing'));
+            return;
+        }
+
+        const jobId = data.job_id;
+        pollJobStatus(jobId);
+    } catch(err) {
+        modal.style.display = 'none';
+        alert('Network error: ' + err.message);
+    }
+}
+
+function pollJobStatus(jobId) {
+    const bar = document.getElementById('aiProgressBar');
+    const msg = document.getElementById('aiProgressMessage');
+    const pct = document.getElementById('aiProgressPercent');
+
+    const timer = setInterval(async () => {
+        try {
+            const res = await fetch(`/teacher/attendance-job-status/${jobId}`);
+            const data = await res.json();
+            if(data.success && data.job) {
+                const job = data.job;
+                bar.style.width = job.progress + '%';
+                pct.innerText = job.progress + '%';
+                msg.innerText = job.message;
+
+                if(job.status === 'completed') {
+                    clearInterval(timer);
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 800);
+                } else if(job.status === 'failed') {
+                    clearInterval(timer);
+                    alert('Attendance processing failed: ' + (job.error || 'Unknown error'));
+                    document.getElementById('aiProgressModal').style.display = 'none';
+                }
+            }
+        } catch(err) {
+            console.error('Polling error:', err);
+        }
+    }, 700);
+}
 
 // Handle Drag and Drop
 const dropZone = document.getElementById('dropZone');

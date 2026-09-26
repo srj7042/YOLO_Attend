@@ -7,6 +7,7 @@ from datetime import datetime, date, timedelta
 from werkzeug.utils import secure_filename
 import csv, io, json, os, uuid
 from config import Config
+from utils.image_utils import save_and_optimize_student_photo, get_or_create_thumbnail, is_allowed_image
 
 
 admin_bp = Blueprint('admin', __name__)
@@ -580,38 +581,28 @@ def upload_photo(student_id):
         return jsonify({'success': False, 'error': 'No photos provided.'}), 400
 
     upload_dir = os.path.join(Config.UPLOAD_FOLDER, 'training_images', f'student_{student.id}')
-    os.makedirs(upload_dir, exist_ok=True)
-
-    allowed_exts = {'png', 'jpg', 'jpeg', 'webp'}
     all_encodings = student.get_encoding()
     saved_images_count = 0
 
     for f in files:
-        if not f or not f.filename:
+        if not f or not f.filename or not is_allowed_image(f.filename):
             continue
-        ext = f.filename.rsplit('.', 1)[-1].lower() if '.' in f.filename else ''
-        if ext not in allowed_exts:
-            continue
-
-        safe_orig = secure_filename(f.filename) or 'photo.jpg'
-        unique_name = f"{uuid.uuid4().hex[:8]}_{safe_orig}"
-        file_path = os.path.join(upload_dir, unique_name)
-        f.save(file_path)
-
-        train_img = StudentTrainingImage(
-            student_id=student.id,
-            filename=unique_name,
-            filepath=file_path
-        )
-        db.session.add(train_img)
-        saved_images_count += 1
 
         try:
-            encs = detect_and_encode_faces(file_path)
+            opt_path, thumb_path, unique_name = save_and_optimize_student_photo(f, upload_dir)
+            train_img = StudentTrainingImage(
+                student_id=student.id,
+                filename=unique_name,
+                filepath=opt_path
+            )
+            db.session.add(train_img)
+            saved_images_count += 1
+
+            encs = detect_and_encode_faces(opt_path)
             if encs:
                 all_encodings.extend(encs)
         except Exception as e:
-            print(f"[WARN] Error encoding face from {file_path}: {e}")
+            print(f"[WARN] Error optimizing or encoding face from {f.filename}: {e}")
 
     student.set_encoding(all_encodings)
     db.session.flush()
@@ -892,7 +883,7 @@ def get_student_training_images(student_id):
 @login_required
 @admin_required
 def upload_student_training_images(student_id):
-    """Handle multi-photo upload for an individual student."""
+    """Handle multi-photo upload for an individual student with WebP optimization and thumbnails."""
     student = Student.query.get_or_404(student_id)
     files = request.files.getlist('photos')
 
@@ -900,39 +891,32 @@ def upload_student_training_images(student_id):
         return jsonify({'success': False, 'message': 'No photo files were provided.'}), 400
 
     upload_dir = os.path.join(Config.UPLOAD_FOLDER, 'training_images', f'student_{student.id}')
-    os.makedirs(upload_dir, exist_ok=True)
-
-    allowed_exts = {'png', 'jpg', 'jpeg', 'webp'}
     saved_count = 0
     new_images = []
 
     for f in files:
-        if not f or not f.filename:
-            continue
-        ext = f.filename.rsplit('.', 1)[-1].lower() if '.' in f.filename else ''
-        if ext not in allowed_exts:
+        if not f or not f.filename or not is_allowed_image(f.filename):
             continue
 
-        safe_orig = secure_filename(f.filename) or 'photo'
-        unique_name = f"{uuid.uuid4().hex[:8]}_{safe_orig}"
-        file_path = os.path.join(upload_dir, unique_name)
-        f.save(file_path)
+        try:
+            opt_path, thumb_path, unique_name = save_and_optimize_student_photo(f, upload_dir)
+            train_img = StudentTrainingImage(
+                student_id=student.id,
+                filename=unique_name,
+                filepath=opt_path
+            )
+            db.session.add(train_img)
+            db.session.flush()
 
-        train_img = StudentTrainingImage(
-            student_id=student.id,
-            filename=unique_name,
-            filepath=file_path
-        )
-        db.session.add(train_img)
-        db.session.flush()
-
-        saved_count += 1
-        new_images.append({
-            'id': train_img.id,
-            'filename': train_img.filename,
-            'url': url_for('admin.get_training_photo', image_id=train_img.id),
-            'uploaded_at': train_img.uploaded_at.strftime('%d %b %Y, %H:%M')
-        })
+            saved_count += 1
+            new_images.append({
+                'id': train_img.id,
+                'filename': train_img.filename,
+                'url': url_for('admin.get_training_photo', image_id=train_img.id),
+                'uploaded_at': train_img.uploaded_at.strftime('%d %b %Y, %H:%M')
+            })
+        except Exception as e:
+            print(f"[WARN] Failed to optimize and save photo {f.filename}: {e}")
 
     # Update student photo count
     total_imgs = StudentTrainingImage.query.filter_by(student_id=student.id).count()
@@ -941,7 +925,7 @@ def upload_student_training_images(student_id):
 
     return jsonify({
         'success': True,
-        'message': f'Successfully uploaded {saved_count} photo(s) for {student.name}.',
+        'message': f'Successfully uploaded and optimized {saved_count} photo(s) for {student.name}.',
         'saved_count': saved_count,
         'photo_count': total_imgs,
         'training_status': student.status_label,
@@ -1212,18 +1196,27 @@ def get_training_photo(image_id):
 @admin_bp.route('/student-training/student/<int:student_id>/avatar')
 @login_required
 def get_student_avatar(student_id):
-    """Serve a student's latest training photo as their avatar, or fallback to ui-avatars."""
+    """Serve a student's optimized thumbnail avatar, or fallback to ui-avatars."""
     student = Student.query.get_or_404(student_id)
     latest_img = StudentTrainingImage.query.filter_by(student_id=student.id).order_by(StudentTrainingImage.uploaded_at.desc()).first()
     if latest_img and os.path.exists(latest_img.filepath):
+        thumb = get_or_create_thumbnail(latest_img.filepath)
+        if thumb and os.path.exists(thumb):
+            return send_file(thumb, mimetype='image/webp')
         return send_file(latest_img.filepath)
+
     # Check folder on disk directly in case images exist without DB entry
     for folder_rel in [os.path.join('training_images', f'student_{student.id}'), f'student_{student.id}']:
         folder = os.path.join(Config.UPLOAD_FOLDER, folder_rel)
         if os.path.isdir(folder):
-            files = [f for f in os.listdir(folder) if f.lower().endswith(('.png', '.jpg', '.jpeg', '.webp'))]
+            files = [f for f in os.listdir(folder) if f.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')) and not f.startswith('thumb_')]
             if files:
-                return send_file(os.path.join(folder, files[-1]))
+                full_path = os.path.join(folder, files[-1])
+                thumb = get_or_create_thumbnail(full_path)
+                if thumb and os.path.exists(thumb):
+                    return send_file(thumb, mimetype='image/webp')
+                return send_file(full_path)
+
     return redirect(f"https://ui-avatars.com/api/?name={student.name}&background=0F204C&color=fff&size=128")
 
 
