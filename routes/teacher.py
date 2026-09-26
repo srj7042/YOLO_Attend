@@ -662,7 +662,7 @@ def run_attendance_background_job(job_id, app, teacher_id, subject_id, att_date_
                 'total_students': len(students),
                 'present_count': present_count,
                 'absent_count': len(students) - present_count,
-                'redirect_url': url_for('teacher.mark_attendance', subject_id=subject_id, date=att_date_obj.strftime('%Y-%m-%d'))
+                'redirect_url': f"/teacher/mark-attendance?subject_id={subject_id}&date={att_date_obj.strftime('%Y-%m-%d')}"
             })
         except Exception as e:
             import traceback

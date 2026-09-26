@@ -455,7 +455,11 @@ function pollJobStatus(jobId) {
                 if(job.status === 'completed') {
                     clearInterval(timer);
                     setTimeout(() => {
-                        window.location.reload();
+                        if(job.result && job.result.redirect_url) {
+                            window.location.href = job.result.redirect_url;
+                        } else {
+                            window.location.reload();
+                        }
                     }, 800);
                 } else if(job.status === 'failed') {
                     clearInterval(timer);
