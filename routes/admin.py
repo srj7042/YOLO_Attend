@@ -883,7 +883,8 @@ def get_student_training_images(student_id):
 @login_required
 @admin_required
 def upload_student_training_images(student_id):
-    """Handle multi-photo upload for an individual student with WebP optimization and thumbnails."""
+    """Handle multi-photo upload for an individual student with WebP optimization, validation, and thumbnails."""
+    from ai.detector import validate_image_quality
     student = Student.query.get_or_404(student_id)
     files = request.files.getlist('photos')
 
@@ -893,6 +894,17 @@ def upload_student_training_images(student_id):
     upload_dir = os.path.join(Config.UPLOAD_FOLDER, 'training_images', f'student_{student.id}')
     saved_count = 0
     new_images = []
+    rejected_reports = []
+
+    # Collect existing image hashes for duplicate prevention
+    existing_imgs = StudentTrainingImage.query.filter_by(student_id=student.id).all()
+    existing_hashes = set()
+    for ei in existing_imgs:
+        if os.path.exists(ei.filepath):
+            try:
+                v = validate_image_quality(ei.filepath, is_training=False)
+                if v.get('image_hash'): existing_hashes.add(v['image_hash'])
+            except: pass
 
     for f in files:
         if not f or not f.filename or not is_allowed_image(f.filename):
@@ -900,6 +912,26 @@ def upload_student_training_images(student_id):
 
         try:
             opt_path, thumb_path, unique_name = save_and_optimize_student_photo(f, upload_dir)
+            
+            # Strict Biometric Quality & Face Validation
+            val_res = validate_image_quality(opt_path, is_training=True, existing_hashes=existing_hashes)
+
+            if not val_res['is_valid']:
+                rejected_reports.append({
+                    'filename': f.filename,
+                    'badge': val_res['badge'],
+                    'issues': val_res['issues']
+                })
+                # Remove rejected photo from storage
+                try:
+                    if os.path.exists(opt_path): os.remove(opt_path)
+                    if os.path.exists(thumb_path): os.remove(thumb_path)
+                except: pass
+                continue
+
+            if val_res.get('image_hash'):
+                existing_hashes.add(val_res['image_hash'])
+
             train_img = StudentTrainingImage(
                 student_id=student.id,
                 filename=unique_name,
@@ -913,7 +945,9 @@ def upload_student_training_images(student_id):
                 'id': train_img.id,
                 'filename': train_img.filename,
                 'url': url_for('admin.get_training_photo', image_id=train_img.id),
-                'uploaded_at': train_img.uploaded_at.strftime('%d %b %Y, %H:%M')
+                'uploaded_at': train_img.uploaded_at.strftime('%d %b %Y, %H:%M'),
+                'badge': '✓ Valid',
+                'quality_score': val_res.get('quality_score', 85)
             })
         except Exception as e:
             print(f"[WARN] Failed to optimize and save photo {f.filename}: {e}")
@@ -923,10 +957,16 @@ def upload_student_training_images(student_id):
     student.photo_count = total_imgs
     db.session.commit()
 
+    msg = f'Uploaded {saved_count} valid photo(s).'
+    if rejected_reports:
+        msg += f" {len(rejected_reports)} photo(s) rejected ({', '.join([r['badge'] for r in rejected_reports])})."
+
     return jsonify({
-        'success': True,
-        'message': f'Successfully uploaded and optimized {saved_count} photo(s) for {student.name}.',
+        'success': saved_count > 0 or len(rejected_reports) > 0,
+        'message': msg,
         'saved_count': saved_count,
+        'rejected_count': len(rejected_reports),
+        'rejected_reports': rejected_reports,
         'photo_count': total_imgs,
         'training_status': student.status_label,
         'has_embeddings': student.has_embeddings,
@@ -1156,7 +1196,7 @@ def train_all_students():
 @login_required
 @admin_required
 def validate_student_images(student_id):
-    """Validate uploaded images of a student for blur, lighting, resolution."""
+    """Validate uploaded images of a student for blur, lighting, resolution, and single face."""
     student = Student.query.get_or_404(student_id)
     images = StudentTrainingImage.query.filter_by(student_id=student.id).all()
 
@@ -1165,7 +1205,7 @@ def validate_student_images(student_id):
     reports = []
     for img in images:
         if os.path.exists(img.filepath):
-            report = validate_image_quality(img.filepath)
+            report = validate_image_quality(img.filepath, is_training=True)
             report['image_id'] = img.id
             report['filename'] = img.filename
             report['url'] = url_for('admin.get_training_photo', image_id=img.id)
@@ -1180,6 +1220,71 @@ def validate_student_images(student_id):
         'reports': reports
     })
 
+
+@admin_bp.route('/model-evaluation')
+@login_required
+@admin_required
+def model_evaluation():
+    """
+    Dedicated Model Evaluation & Diagnostic Hub:
+    Distinguishes Recognition Similarity (per-face match confidence)
+    from Actual Model Accuracy (True Positive, False Positive, Precision, Recall, F1, FAR, FRR).
+    """
+    from ai.recognizer import compute_model_metrics, cosine_similarity
+
+    students = Student.query.all()
+    trained_students = [s for s in students if s.has_embeddings]
+    total_photos = StudentTrainingImage.query.count()
+
+    # Calculate actual inter-student separation and intra-student consistency
+    intra_consistencies = []
+    inter_separations = []
+
+    for s in trained_students:
+        encs = s.get_encoding()
+        if len(encs) > 1:
+            pw = [cosine_similarity(encs[i], encs[j]) for i in range(len(encs)) for j in range(i+1, len(encs))]
+            if pw:
+                intra_consistencies.append(float(np.mean(pw)))
+
+    for i in range(len(trained_students)):
+        for j in range(i+1, len(trained_students)):
+            e1 = trained_students[i].get_encoding()
+            e2 = trained_students[j].get_encoding()
+            if e1 and e2:
+                sims = [cosine_similarity(v1, v2) for v1 in e1 for v2 in e2]
+                if sims:
+                    inter_separations.append(float(np.mean(sims)))
+
+    avg_intra = round(float(np.mean(intra_consistencies)) * 100, 1) if intra_consistencies else 0.0
+    avg_inter = round(float(np.mean(inter_separations)) * 100, 1) if inter_separations else 0.0
+
+    # Build evaluation samples from confirmed attendance records
+    eval_records = AttendanceRecord.query.filter(AttendanceRecord.ai_confidence.isnot(None)).all()
+    eval_samples = []
+    for r in eval_records:
+        # A record where status is 'present' and ai_confidence > 0.60
+        pred_id = r.student_id if (r.status == 'present' and (r.ai_confidence or 0) >= 0.55) else None
+        true_id = r.student_id if r.status == 'present' else None
+        eval_samples.append({
+            'predicted_id': pred_id,
+            'true_id': true_id,
+            'confidence': r.ai_confidence or 0.0
+        })
+
+    metrics = compute_model_metrics(eval_samples)
+
+    return render_template(
+        'admin/evaluation.html',
+        total_students=len(students),
+        trained_students_count=len(trained_students),
+        total_photos=total_photos,
+        avg_intra_consistency=avg_intra,
+        avg_inter_similarity=avg_inter,
+        metrics=metrics,
+        eval_records_count=len(eval_records),
+        trained_students=trained_students
+    )
 
 
 @admin_bp.route('/student-training/photo/<int:image_id>')

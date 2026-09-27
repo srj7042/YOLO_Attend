@@ -502,6 +502,17 @@
         <div class="prog"><div class="prog-f" id="uploadProgressBar" style="width: 0%;"></div></div>
       </div>
 
+      <!-- Image Pre-Validation Feedback Badges -->
+      <div id="uploadValidationBox" style="display: none; margin-bottom: 16px; padding: 14px; border-radius: 12px; background: var(--bg0); border: 1px solid var(--b0);">
+        <div style="font-weight: 700; font-size: 12.5px; color: var(--t0); margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+          <span><i class="fas fa-shield-halved" style="color: var(--brand-l);"></i> Dataset Quality Pre-Validation</span>
+          <span id="valSummaryCounts" style="font-size: 11px; color: var(--t2);"></span>
+        </div>
+        <div id="valBadgesList" style="display: flex; flex-direction: column; gap: 6px; max-height: 160px; overflow-y: auto;">
+          <!-- Dynamically populated with validation badges -->
+        </div>
+      </div>
+
       <!-- Existing Photos Gallery -->
       <div>
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
@@ -763,6 +774,8 @@ async function openPhotoModal(studentId) {
   modal.classList.add('open');
 
   document.getElementById('mMetricsBox').style.display = 'none';
+  const valBox = document.getElementById('uploadValidationBox');
+  if (valBox) valBox.style.display = 'none';
   await refreshModalGallery(studentId);
 }
 
@@ -774,6 +787,8 @@ function closePhotoModal() {
   document.getElementById('photoFileInput').value = '';
   document.getElementById('uploadProgressContainer').style.display = 'none';
   document.getElementById('mMetricsBox').style.display = 'none';
+  const valBox = document.getElementById('uploadValidationBox');
+  if (valBox) valBox.style.display = 'none';
 }
 
 async function refreshModalGallery(studentId) {
@@ -900,6 +915,40 @@ async function handleFileSelect(files, skipRefresh = false) {
 
     if (res.ok && result.success) {
       showToast(result.message, 'success');
+      
+      const valBox = document.getElementById('uploadValidationBox');
+      const valBadgesList = document.getElementById('valBadgesList');
+      const valSummaryCounts = document.getElementById('valSummaryCounts');
+
+      if (result.validation_badges && result.validation_badges.length > 0) {
+        valBox.style.display = 'block';
+        valSummaryCounts.innerText = `${result.saved_count || 0} Accepted, ${result.rejected_count || 0} Rejected`;
+        valBadgesList.innerHTML = '';
+        
+        result.validation_badges.forEach(b => {
+          const item = document.createElement('div');
+          item.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:8px 12px; border-radius:8px; background:var(--bg1); border:1px solid var(--b0); font-size:12px;';
+          
+          const isOk = b.status === 'valid';
+          const badgeBg = isOk ? 'rgba(45, 168, 79, 0.15)' : 'rgba(239, 68, 68, 0.15)';
+          const textColor = isOk ? 'var(--green)' : '#EF4444';
+          const borderColor = isOk ? 'rgba(45, 168, 79, 0.3)' : 'rgba(239, 68, 68, 0.3)';
+          
+          item.innerHTML = `
+            <div style="display:flex; align-items:center; gap:8px; min-width:0; flex:1;">
+              <span style="font-weight:600; color:var(--t0); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:220px;" title="${b.filename}">${b.filename}</span>
+              ${b.issues && b.issues.length > 0 ? `<span style="font-size:11px; color:var(--t2);">(${b.issues.join(', ')})</span>` : ''}
+            </div>
+            <span style="background:${badgeBg}; color:${textColor}; border:1px solid ${borderColor}; padding:3px 8px; border-radius:6px; font-weight:700; font-size:11px; white-space:nowrap;">
+              ${b.badge}
+            </span>
+          `;
+          valBadgesList.appendChild(item);
+        });
+      } else if (valBox) {
+        valBox.style.display = 'none';
+      }
+
       if (!skipRefresh) {
         await refreshModalGallery(currentModalStudentId);
       }

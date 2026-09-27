@@ -1,0 +1,273 @@
+{% extends "base.html" %}
+{% block title %}Model Evaluation & Accuracy — SmartAttend{% endblock %}
+{% block page_title %}AI Biometric Evaluation Hub{% endblock %}
+
+{% block head %}
+<style>
+  .eval-hero { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 16px; }
+  .eval-title { font-family: var(--font-heading); font-size: 26px; font-weight: 800; color: var(--brand); letter-spacing: -0.5px; }
+  .eval-subtitle { font-size: 13.5px; color: var(--t2); margin-top: 4px; }
+
+  /* Metrics Cards Grid */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .metric-card {
+    background: var(--bg1);
+    border: 1px solid var(--b0);
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 4px 14px rgba(15,32,76,0.04);
+    position: relative;
+    overflow: hidden;
+  }
+  .metric-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, var(--brand), var(--brand-l));
+  }
+  .metric-card.success::before { background: var(--green); }
+  .metric-card.warning::before { background: #D97706; }
+  .metric-card.danger::before { background: var(--red); }
+
+  .metric-label { font-size: 11.5px; font-weight: 700; color: var(--t2); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+  .metric-val { font-family: var(--font-heading); font-size: 28px; font-weight: 800; color: var(--t0); line-height: 1; }
+  .metric-sub { font-size: 12px; color: var(--t2); margin-top: 6px; }
+
+  /* Two Column Layout */
+  .eval-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 30px;
+  }
+  @media (max-width: 900px) {
+    .eval-layout { grid-template-columns: 1fr; }
+  }
+
+  .eval-panel {
+    background: var(--bg1);
+    border: 1px solid var(--b0);
+    border-radius: 18px;
+    padding: 24px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.03);
+  }
+  .panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 18px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--b0);
+  }
+  .panel-title { font-family: var(--font-heading); font-size: 17px; font-weight: 800; color: var(--t0); display: flex; align-items: center; gap: 8px; }
+
+  /* Confusion Matrix Display */
+  .cm-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 14px;
+  }
+  .cm-cell {
+    padding: 16px;
+    border-radius: 12px;
+    text-align: center;
+  }
+  .cm-cell.tp { background: rgba(45, 168, 79, 0.12); border: 1px solid rgba(45, 168, 79, 0.3); }
+  .cm-cell.fp { background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); }
+  .cm-cell.fn { background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3); }
+  .cm-cell.tn { background: rgba(59, 130, 246, 0.12); border: 1px solid rgba(59, 130, 246, 0.3); }
+
+  .cm-cell-title { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--t1); margin-bottom: 4px; }
+  .cm-cell-val { font-size: 24px; font-weight: 800; color: var(--t0); }
+  .cm-cell-sub { font-size: 10.5px; color: var(--t2); margin-top: 2px; }
+
+  /* Info Comparison Box */
+  .dist-box {
+    background: rgba(15,32,76,0.03);
+    border: 1px solid var(--b0);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .dist-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px dashed var(--b0);
+  }
+  .dist-item:last-child { border-bottom: none; }
+  .dist-label { font-size: 13px; font-weight: 600; color: var(--t1); }
+  .dist-val { font-size: 13.5px; font-weight: 700; color: var(--t0); }
+
+  /* Diagnostic alert banner */
+  .diag-banner {
+    background: rgba(59, 130, 246, 0.08);
+    border: 1px solid rgba(59, 130, 246, 0.25);
+    border-radius: 14px;
+    padding: 16px 20px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .diag-icon { font-size: 20px; color: var(--brand); margin-top: 2px; }
+  .diag-content { font-size: 13px; color: var(--t1); line-height: 1.5; }
+  .diag-content strong { color: var(--t0); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="eval-hero">
+  <div>
+    <div class="eval-title"><i class="fas fa-chart-line" style="margin-right: 8px;"></i> AI Biometric Evaluation & Accuracy Hub</div>
+    <div class="eval-subtitle">Scientific validation distinguishing per-face match similarity from true classification accuracy</div>
+  </div>
+  <div>
+    <a href="{{ url_for('admin.student_training') }}" class="btn btn-outline" style="border-radius: 10px; font-size: 13px; font-weight: 700;">
+      <i class="fas fa-users-cog"></i> Back to Student Training
+    </a>
+  </div>
+</div>
+
+<div class="diag-banner">
+  <i class="fas fa-info-circle diag-icon"></i>
+  <div class="diag-content">
+    <strong>Recognition Confidence vs. Actual Model Accuracy:</strong><br>
+    The percentage displayed on a detected face in the classroom photo (e.g. <code>94.7%</code>) represents the <strong>biometric vector cosine similarity</strong> to that student's enrollment profile.
+    <strong>True Model Accuracy, Precision, and Recall</strong> require evaluating test predictions against known ground-truth identities across multiple attendance sessions.
+  </div>
+</div>
+
+<!-- Primary Statistical Metrics -->
+<div class="metrics-grid">
+  <div class="metric-card {% if metrics.accuracy >= 85 %}success{% elif metrics.accuracy >= 70 %}warning{% else %}danger{% endif %}">
+    <div class="metric-label"><i class="fas fa-bullseye"></i> Overall Accuracy</div>
+    <div class="metric-val">{{ metrics.accuracy }}%</div>
+    <div class="metric-sub">Based on {{ metrics.total_samples }} verified test events</div>
+  </div>
+
+  <div class="metric-card success">
+    <div class="metric-label"><i class="fas fa-check-double"></i> Precision</div>
+    <div class="metric-val">{{ metrics.precision }}%</div>
+    <div class="metric-sub">Ratio of correct student recognitions</div>
+  </div>
+
+  <div class="metric-card">
+    <div class="metric-label"><i class="fas fa-user-check"></i> Recall / Sensitivity</div>
+    <div class="metric-val">{{ metrics.recall }}%</div>
+    <div class="metric-sub">Ratio of enrolled students identified</div>
+  </div>
+
+  <div class="metric-card">
+    <div class="metric-label"><i class="fas fa-balance-scale"></i> F1-Score</div>
+    <div class="metric-val">{{ metrics.f1_score }}%</div>
+    <div class="metric-sub">Harmonic mean of precision & recall</div>
+  </div>
+
+  <div class="metric-card {% if metrics.far <= 2.0 %}success{% else %}warning{% endif %}">
+    <div class="metric-label"><i class="fas fa-user-secret"></i> False Acceptance (FAR)</div>
+    <div class="metric-val">{{ metrics.far }}%</div>
+    <div class="metric-sub">Impostor accepted as student</div>
+  </div>
+
+  <div class="metric-card {% if metrics.frr <= 5.0 %}success{% else %}warning{% endif %}">
+    <div class="metric-label"><i class="fas fa-user-times"></i> False Rejection (FRR)</div>
+    <div class="metric-val">{{ metrics.frr }}%</div>
+    <div class="metric-sub">Genuine student tagged Unknown</div>
+  </div>
+</div>
+
+<!-- Two-Column Diagnostic Panels -->
+<div class="eval-layout">
+  <!-- Left: Confusion Matrix & Detection Counts -->
+  <div class="eval-panel">
+    <div class="panel-header">
+      <div class="panel-title"><i class="fas fa-th-large" style="color: var(--brand);"></i> Verification Matrix</div>
+      <span style="font-size: 11px; font-weight: 700; color: var(--t2); text-transform: uppercase;">{{ metrics.total_samples }} Total Trials</span>
+    </div>
+
+    <p style="font-size: 12.5px; color: var(--t2); margin-bottom: 12px;">
+      Outcome classification across recorded attendance verification points:
+    </p>
+
+    <div class="cm-grid">
+      <div class="cm-cell tp">
+        <div class="cm-cell-title"><i class="fas fa-check-circle" style="color: var(--green);"></i> True Positive (TP)</div>
+        <div class="cm-cell-val">{{ metrics.tp }}</div>
+        <div class="cm-cell-sub">Enrolled student correctly recognized</div>
+      </div>
+
+      <div class="cm-cell fp">
+        <div class="cm-cell-title"><i class="fas fa-exclamation-triangle" style="color: var(--red);"></i> False Positive (FP)</div>
+        <div class="cm-cell-val">{{ metrics.fp }}</div>
+        <div class="cm-cell-sub">Wrong student or false match</div>
+      </div>
+
+      <div class="cm-cell fn">
+        <div class="cm-cell-title"><i class="fas fa-times-circle" style="color: #D97706;"></i> False Negative (FN)</div>
+        <div class="cm-cell-val">{{ metrics.fn }}</div>
+        <div class="cm-cell-sub">Enrolled student marked Unknown</div>
+      </div>
+
+      <div class="cm-cell tn">
+        <div class="cm-cell-title"><i class="fas fa-shield-alt" style="color: #2563EB;"></i> True Negative (TN)</div>
+        <div class="cm-cell-val">{{ metrics.tn }}</div>
+        <div class="cm-cell-sub">Unknown/unregistered face rejected</div>
+      </div>
+    </div>
+
+    <div style="margin-top: 20px; padding: 12px 14px; background: rgba(0,0,0,0.02); border-radius: 10px; font-size: 12px; color: var(--t2);">
+      <strong style="color: var(--t0);">Optimal Decision Boundary:</strong> Current FaceNet threshold is set to <code>0.60</code> (or <code>0.55</code> in Deep Scan). This keeps FAR near 0% while minimizing false rejections.
+    </div>
+  </div>
+
+  <!-- Right: Dataset Biometric Quality -->
+  <div class="eval-panel">
+    <div class="panel-header">
+      <div class="panel-title"><i class="fas fa-fingerprint" style="color: var(--brand);"></i> Dataset Biometric Health</div>
+      <span style="font-size: 11px; font-weight: 700; color: var(--green);">Active</span>
+    </div>
+
+    <div class="dist-box">
+      <div class="dist-item">
+        <span class="dist-label">Total Registered Students</span>
+        <span class="dist-val">{{ total_students }}</span>
+      </div>
+      <div class="dist-item">
+        <span class="dist-label">Trained Biometric Profiles</span>
+        <span class="dist-val" style="color: var(--green);">{{ trained_students_count }} / {{ total_students }}</span>
+      </div>
+      <div class="dist-item">
+        <span class="dist-label">Total Verified Photos on Disk</span>
+        <span class="dist-val">{{ total_photos }}</span>
+      </div>
+      <div class="dist-item">
+        <span class="dist-label">Average Intra-Student Consistency</span>
+        <span class="dist-val" style="color: {% if avg_intra_consistency >= 75 %}var(--green){% else %}#D97706{% endif %};">
+          {{ avg_intra_consistency }}%
+        </span>
+      </div>
+      <div class="dist-item">
+        <span class="dist-label">Average Cross-Student Separation</span>
+        <span class="dist-val" style="color: var(--brand-l);">
+          {{ avg_inter_similarity }}% (Target: &lt; 25%)
+        </span>
+      </div>
+    </div>
+
+    <div style="font-size: 12.5px; color: var(--t1); line-height: 1.6;">
+      <strong style="color: var(--t0); display: block; margin-bottom: 4px;">Dataset Recommendations:</strong>
+      • <strong>Recommended Photos:</strong> 5 to 8 clear frontal & slightly angled photos per student.<br>
+      • <strong>Intra-Consistency &gt; 75%:</strong> Indicates consistent facial features across training images.<br>
+      • <strong>Cross-Separation &lt; 25%:</strong> Confirms students are well-separated in the 128-dimensional embedding space.
+    </div>
+  </div>
+</div>
+{% endblock %}

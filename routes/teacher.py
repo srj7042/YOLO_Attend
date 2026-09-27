@@ -172,9 +172,14 @@ def classes(subject_id=None):
         pct = round((present / total * 100) if total else 0, 1)
         
         photos_list = []
-        folder = os.path.join(Config.UPLOAD_FOLDER, f'student_{s.id}')
+        folder = os.path.join(Config.UPLOAD_FOLDER, 'training_images', f'student_{s.id}')
+        if not os.path.exists(folder):
+            folder = os.path.join(Config.UPLOAD_FOLDER, f'student_{s.id}')
         if os.path.exists(folder):
-            photos_list = [f for f in os.listdir(folder) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
+            photos_list = [
+                f for f in os.listdir(folder)
+                if f.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')) and not f.startswith('thumb_')
+            ]
             
         student_data.append({
             'obj': s,
@@ -397,15 +402,29 @@ def import_students_csv(subject_id):
 @login_required
 @teacher_required
 def upload_student_photo(student_id):
+    from ai.detector import validate_image_quality
     student = Student.query.get_or_404(student_id)
     photos = request.files.getlist('photos')
     folder = os.path.join(Config.UPLOAD_FOLDER, 'training_images', f'student_{student_id}')
     saved_paths = []
+    rejected_reasons = []
 
     for photo in photos:
         if photo and photo.filename and is_allowed_image(photo.filename):
             try:
                 opt_path, thumb_path, unique_name = save_and_optimize_student_photo(photo, folder)
+                
+                # Biometric quality check
+                val = validate_image_quality(opt_path, is_training=True)
+                if not val['is_valid']:
+                    rejected_reasons.append(f"{photo.filename}: {val['badge']}")
+                    # If invalid, remove saved file
+                    try:
+                        if os.path.exists(opt_path): os.remove(opt_path)
+                        if os.path.exists(thumb_path): os.remove(thumb_path)
+                    except: pass
+                    continue
+
                 train_img = StudentTrainingImage(
                     student_id=student.id,
                     filename=unique_name,
@@ -419,12 +438,14 @@ def upload_student_photo(student_id):
     if saved_paths:
         try:
             from ai.recognizer import generate_face_embeddings
-            embeddings = generate_face_embeddings(saved_paths)
+            # Re-generate embeddings over all cumulative valid photos
+            all_imgs = StudentTrainingImage.query.filter_by(student_id=student.id).all()
+            all_paths = [img.filepath for img in all_imgs if os.path.exists(img.filepath)] + saved_paths
+            all_paths = list(set(all_paths))
+
+            embeddings = generate_face_embeddings(all_paths)
             if embeddings:
-                existing = student.get_encoding()
-                if existing and isinstance(existing[0], (int, float)):
-                    existing = [existing]
-                student.set_encoding((existing or []) + embeddings)
+                student.set_encoding(embeddings)
                 student.training_status = 'Trained'
         except Exception as e:
             print(f"[WARN] Error generating embeddings: {e}")
@@ -432,22 +453,62 @@ def upload_student_photo(student_id):
         db.session.flush()
         student.photo_count = StudentTrainingImage.query.filter_by(student_id=student.id).count()
         db.session.commit()
-        return jsonify({'success': True, 'photos': student.photo_count})
-    return jsonify({'error': 'No photos saved'}), 400
+        return jsonify({
+            'success': True,
+            'photos': student.photo_count,
+            'saved': len(saved_paths),
+            'rejected': rejected_reasons
+        })
+    elif rejected_reasons:
+        return jsonify({'success': False, 'error': f"Photos rejected: {'; '.join(rejected_reasons)}"}), 400
+    return jsonify({'error': 'No valid photos saved'}), 400
 
 @teacher_bp.route('/classes/delete-photo/<int:student_id>/<filename>', methods=['POST'])
 @login_required
 @teacher_required
 def delete_student_photo(student_id, filename):
     student = Student.query.get_or_404(student_id)
-    folder = os.path.join(Config.UPLOAD_FOLDER, f'student_{student_id}')
-    path = os.path.join(folder, secure_filename(filename))
-    
-    if os.path.exists(path):
-        os.remove(path)
-        student.photo_count = max(0, (student.photo_count or 0) - 1)
-        db.session.commit()
-        return jsonify({'success': True, 'photo_count': student.photo_count})
+    sec_name = secure_filename(filename)
+
+    for base_dir in [
+        os.path.join(Config.UPLOAD_FOLDER, 'training_images', f'student_{student_id}'),
+        os.path.join(Config.UPLOAD_FOLDER, f'student_{student_id}')
+    ]:
+        p = os.path.join(base_dir, sec_name)
+        if os.path.exists(p):
+            try: os.remove(p)
+            except: pass
+        thumb_p = os.path.join(base_dir, f"thumb_{sec_name}")
+        if os.path.exists(thumb_p):
+            try: os.remove(thumb_p)
+            except: pass
+
+    # Remove database record if exists
+    StudentTrainingImage.query.filter(
+        StudentTrainingImage.student_id == student.id,
+        (StudentTrainingImage.filename == sec_name) | (StudentTrainingImage.filepath.like(f"%{sec_name}%"))
+    ).delete(synchronize_session=False)
+
+    remaining_count = StudentTrainingImage.query.filter_by(student_id=student.id).count()
+    student.photo_count = remaining_count
+
+    # Retrain or clear embeddings if 0 photos remain
+    if remaining_count == 0:
+        student.face_encoding = None
+        student.training_status = 'Not Trained'
+    else:
+        try:
+            from ai.recognizer import generate_face_embeddings
+            rem_imgs = StudentTrainingImage.query.filter_by(student_id=student.id).all()
+            rem_paths = [img.filepath for img in rem_imgs if os.path.exists(img.filepath)]
+            if rem_paths:
+                embs = generate_face_embeddings(rem_paths)
+                student.set_encoding(embs)
+        except Exception:
+            pass
+
+    db.session.commit()
+    return jsonify({'success': True, 'photo_count': student.photo_count})
     return jsonify({'error': 'File not found'}), 404
 
 @teacher_bp.route('/mark-attendance', methods=['GET', 'POST'])
@@ -505,6 +566,9 @@ def mark_attendance():
     is_processed = False
     is_finalized = False
     
+    # Check for annotated attendance image and summary
+    annotated_image_url = None
+    attendance_summary = None
     if subject_id:
         subject = Subject.query.get(subject_id)
         if subject:
@@ -515,15 +579,51 @@ def mark_attendance():
             if records: is_processed = True
             is_finalized = not is_window_valid # Lock if date is outside 3-day window
             
+            present_students = []
             for s in students:
                 rec = record_map.get(s.id)
+                is_pres = rec.status == 'present' if rec else False
+                conf = int((rec.ai_confidence or 0) * 100) if rec else 0
+                if is_pres:
+                    present_students.append({
+                        'name': s.name,
+                        'student_id': s.student_id,
+                        'confidence': conf
+                    })
                 student_data.append({
                     'obj': s,
-                    'is_present': rec.status == 'present' if rec else False,
-                    'confidence': int((rec.ai_confidence or 0) * 100) if rec else 0,
+                    'is_present': is_pres,
+                    'confidence': conf,
                     'method': rec.method if rec else None,
                     'is_finalized': is_finalized
                 })
+
+            # Look for annotated session image
+            session_folder = os.path.join(Config.UPLOAD_FOLDER, 'sessions', f'{subject_id}_{att_date_str}')
+            if os.path.exists(session_folder):
+                ann_files = [f for f in os.listdir(session_folder) if f.startswith('annotated_') and f.lower().endswith(('.jpg', '.jpeg', '.png', '.webp'))]
+                if ann_files:
+                    annotated_image_url = url_for('teacher.get_session_annotated_photo', subject_id=subject_id, date_str=att_date_str, filename=ann_files[-1])
+
+                summary_file = os.path.join(session_folder, 'ai_summary.json')
+                if os.path.exists(summary_file):
+                    try:
+                        with open(summary_file, 'r') as sf:
+                            attendance_summary = json.load(sf)
+                    except Exception:
+                        pass
+
+            if not attendance_summary and is_processed:
+                attendance_summary = {
+                    'total_faces': len(present_students),
+                    'recognized_count': len(present_students),
+                    'unknown_count': 0,
+                    'total_present': len(present_students),
+                    'total_absent': len(students) - len(present_students),
+                    'total_students': len(students),
+                    'recognized': [{'name': s['name'], 'student_id': s['student_id'], 'confidence': s['confidence']} for s in present_students],
+                    'unknown': []
+                }
 
     if request.method == 'POST':
         subject_id = request.form.get('subject_id', type=int)
@@ -554,12 +654,24 @@ def mark_attendance():
         # Collect all photos uploaded in this session for cumulative multi-photo recognition
         all_session_photos = [
             os.path.join(session_folder, f) for f in os.listdir(session_folder)
-            if f.lower().endswith(('.png', '.jpg', '.jpeg', '.webp'))
+            if f.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')) and not f.startswith('annotated_')
         ]
-        
         try:
             from ai.recognizer import process_attendance
-            results = process_attendance(all_session_photos, students, deep_scan=is_retry)
+            res_raw = process_attendance(all_session_photos, students, deep_scan=is_retry)
+            if isinstance(res_raw, dict) and 'records' in res_raw:
+                results = res_raw['records']
+                ai_summary = res_raw.get('summary', {})
+            else:
+                results = res_raw
+                ai_summary = {}
+
+            # Persist summary for presentation
+            try:
+                with open(os.path.join(session_folder, 'ai_summary.json'), 'w') as sf:
+                    json.dump(ai_summary, sf, indent=2)
+            except Exception as se:
+                print(f"Failed to write ai_summary.json: {se}")
         except Exception as e:
             import traceback
             traceback.print_exc()
@@ -604,7 +716,9 @@ def mark_attendance():
                            is_window_valid=is_window_valid,
                            window_min=min_window_date.strftime('%Y-%m-%d'),
                            window_max=max_window_date.strftime('%Y-%m-%d'),
-                           today=today_str)
+                           today=today_str,
+                           annotated_image_url=annotated_image_url,
+                           attendance_summary=attendance_summary)
 
 
 def run_attendance_background_job(job_id, app, teacher_id, subject_id, att_date_obj, lecture_time, all_session_photos, is_retry):
@@ -624,12 +738,28 @@ def run_attendance_background_job(job_id, app, teacher_id, subject_id, att_date_
                 attendance_jobs.update_job(job_id, pct, msg)
 
             from ai.recognizer import process_attendance
-            results = process_attendance(
+            res_raw = process_attendance(
                 all_session_photos,
                 students,
                 deep_scan=is_retry,
                 progress_callback=progress_cb
             )
+
+            if isinstance(res_raw, dict) and 'records' in res_raw:
+                results = res_raw['records']
+                ai_summary = res_raw.get('summary', {})
+            else:
+                results = res_raw
+                ai_summary = {}
+
+            # Persist summary for presentation
+            if all_session_photos:
+                try:
+                    s_folder = os.path.dirname(all_session_photos[0])
+                    with open(os.path.join(s_folder, 'ai_summary.json'), 'w') as sf:
+                        json.dump(ai_summary, sf, indent=2)
+                except Exception as se:
+                    print(f"Failed to write ai_summary.json in job: {se}")
 
             progress_cb(90, "Recording results into database...")
             present_count = 0
@@ -662,12 +792,24 @@ def run_attendance_background_job(job_id, app, teacher_id, subject_id, att_date_
                 'total_students': len(students),
                 'present_count': present_count,
                 'absent_count': len(students) - present_count,
+                'ai_summary': ai_summary,
                 'redirect_url': f"/teacher/mark-attendance?subject_id={subject_id}&date={att_date_obj.strftime('%Y-%m-%d')}"
             })
         except Exception as e:
             import traceback
             traceback.print_exc()
             attendance_jobs.fail_job(job_id, str(e))
+
+
+@teacher_bp.route('/session-annotated-photo/<int:subject_id>/<date_str>/<filename>')
+@login_required
+def get_session_annotated_photo(subject_id, date_str, filename):
+    session_folder = os.path.join(Config.UPLOAD_FOLDER, 'sessions', f'{subject_id}_{date_str}')
+    file_path = os.path.join(session_folder, secure_filename(filename))
+    if os.path.exists(file_path):
+        mimetype = 'image/webp' if filename.lower().endswith('.webp') else 'image/jpeg'
+        return send_file(file_path, mimetype=mimetype)
+    return ('Annotated image not found', 404)
 
 
 @teacher_bp.route('/mark-attendance-async', methods=['POST'])
@@ -890,16 +1032,27 @@ def monthly_report():
 @teacher_required
 def student_photos(student_id):
     student = Student.query.get_or_404(student_id)
-    folder = os.path.join(Config.UPLOAD_FOLDER, f'student_{student_id}')
+    folder = os.path.join(Config.UPLOAD_FOLDER, 'training_images', f'student_{student_id}')
+    if not os.path.exists(folder):
+        folder = os.path.join(Config.UPLOAD_FOLDER, f'student_{student_id}')
     photos = []
     if os.path.exists(folder):
-        photos = [f for f in os.listdir(folder) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
+        photos = [f for f in os.listdir(folder) if f.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')) and not f.startswith('thumb_')]
     return jsonify({'photos': photos})
 
 @teacher_bp.route('/student_photo/<int:student_id>/<filename>')
 def serve_student_photo(student_id, filename):
-    folder = os.path.join(Config.UPLOAD_FOLDER, f'student_{student_id}')
-    return send_file(os.path.join(folder, filename))
+    sec_name = secure_filename(filename)
+    folder = os.path.join(Config.UPLOAD_FOLDER, 'training_images', f'student_{student_id}')
+    file_path = os.path.join(folder, sec_name)
+    if not os.path.exists(file_path):
+        folder = os.path.join(Config.UPLOAD_FOLDER, f'student_{student_id}')
+        file_path = os.path.join(folder, sec_name)
+
+    if os.path.exists(file_path):
+        mimetype = 'image/webp' if sec_name.lower().endswith('.webp') else None
+        return send_file(file_path, mimetype=mimetype)
+    return ('Photo not found', 404)
 
 @teacher_bp.route('/api/subject_divisions/<int:subject_id>')
 @login_required

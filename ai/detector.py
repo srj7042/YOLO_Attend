@@ -49,6 +49,81 @@ def _get_yolo_model():
     return _yolo_model
 
 
+_yunet_model = None
+
+def _get_yunet_detector(input_size=(640, 640), score_thresh=0.6, nms_thresh=0.3):
+    """
+    Lazy-load and cache OpenCV YuNet deep-learning face detector.
+    YuNet operates natively in OpenCV 4.x / 5.x, producing precise bounding boxes and facial landmarks.
+    """
+    global _yunet_model
+    import cv2
+    yunet_weights = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'face_detection_yunet.onnx')
+    if not os.path.exists(yunet_weights):
+        # Auto-download YuNet if missing (~230KB)
+        import urllib.request
+        yunet_url = 'https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx'
+        try:
+            print("[YUNET-DOWNLOAD] Downloading lightweight YuNet face detector model...")
+            urllib.request.urlretrieve(yunet_url, yunet_weights)
+        except Exception as e:
+            print(f"[YUNET-WARN] Failed downloading YuNet: {e}")
+
+    if hasattr(cv2, 'FaceDetectorYN') and os.path.exists(yunet_weights):
+        try:
+            detector = cv2.FaceDetectorYN.create(
+                model=yunet_weights,
+                config='',
+                input_size=input_size,
+                score_threshold=score_thresh,
+                nms_threshold=nms_thresh,
+                top_k=5000
+            )
+            return detector
+        except Exception as e:
+            print(f"[YUNET-ERR] Error creating YuNet detector: {e}")
+    return None
+
+
+def detect_faces_yunet(img, score_thresh=0.6, nms_thresh=0.3):
+    """
+    Run YuNet deep learning face detector on an image.
+    Returns list of dicts: [{'box': (x, y, w, h), 'confidence': float, 'landmarks': [...]}]
+    """
+    import cv2
+    if img is None or img.size == 0:
+        return []
+    h, w = img.shape[:2]
+    detector = _get_yunet_detector(input_size=(w, h), score_thresh=score_thresh, nms_thresh=nms_thresh)
+    if detector is None:
+        return []
+
+    try:
+        detector.setInputSize((w, h))
+        _, faces = detector.detect(img)
+        if faces is None or len(faces) == 0:
+            return []
+
+        results = []
+        for face in faces:
+            fx, fy, fw, fh = map(int, face[:4])
+            conf = float(face[-1])
+            # Ensure valid bounds
+            fx = max(0, fx)
+            fy = max(0, fy)
+            fw = min(w - fx, max(1, fw))
+            fh = min(h - fy, max(1, fh))
+            results.append({
+                'box': (fx, fy, fw, fh),
+                'confidence': round(conf, 3),
+                'raw': face
+            })
+        return results
+    except Exception as e:
+        print(f"[YUNET-DETECT-ERR] {e}")
+        return []
+
+
 def enhance_image_quality(img_or_path, force_sharpen=False):
     """
     Apply physics-based unsharp masking, contrast normalization (CLAHE),
@@ -119,61 +194,143 @@ def preprocess_face_crop_for_embedding(face_crop):
     return face_crop
 
 
-def validate_image_quality(img_or_path):
+def validate_image_quality(img_or_path, is_training=False, existing_hashes=None):
     """
-    Validate quality of training image (blur, brightness, resolution, aspect ratio).
-    Auto-restores blurry/low-contrast photos. Returns dict with quality score and diagnostics.
+    Comprehensive validation for training and attendance images:
+    - Checks resolution & aspect ratio
+    - Evaluates blur / sharpness via Laplacian variance
+    - Verifies lighting & contrast
+    - Detects number of faces (for training: MUST be exactly 1 face)
+    - Checks face size relative to frame
+    - Detects duplicate images
+    Returns dict with strict verification flags and human-readable badges.
     """
     import cv2
     if isinstance(img_or_path, str):
         if not os.path.exists(img_or_path):
-            return {'is_valid': False, 'score': 0.0, 'issues': ['File does not exist']}
+            return {
+                'is_valid': False,
+                'status': 'Error',
+                'badge': '✗ File Not Found',
+                'quality_score': 0.0,
+                'blur_score': 0.0,
+                'face_count': 0,
+                'issues': ['File does not exist on disk']
+            }
         img = cv2.imread(img_or_path)
     else:
         img = img_or_path
 
     if img is None or img.size == 0:
-        return {'is_valid': False, 'score': 0.0, 'issues': ['Unreadable image']}
+        return {
+            'is_valid': False,
+            'status': 'Error',
+            'badge': '✗ Unreadable',
+            'quality_score': 0.0,
+            'blur_score': 0.0,
+            'face_count': 0,
+            'issues': ['Unreadable image file']
+        }
 
     h, w = img.shape[:2]
     issues = []
-    
+    badges = []
+
     # 1. Resolution Check
     if w < 100 or h < 100:
-        issues.append(f'Low resolution ({w}x{h}px). Minimum 100x100px recommended.')
+        issues.append(f'Low resolution ({w}x{h}px). Minimum 100x100px required.')
+        badges.append('✗ Resolution Too Low')
 
-    # 2. Sharpness / Blur Detection via Laplacian variance
+    # 2. Sharpness / Blur Detection
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     blur_score = float(cv2.Laplacian(gray, cv2.CV_64F).var())
-    if blur_score < 45.0:
-        issues.append(f'Image is blurry (sharpness score: {blur_score:.1f}). Auto-restoration & unsharp mask applied.')
+    is_blurry = blur_score < 35.0
+    if is_blurry:
+        issues.append(f'Image is too blurry (sharpness: {blur_score:.1f}). Hold camera steady.')
+        badges.append('✗ Too Blurry')
 
-    # 3. Illumination / Brightness Check
+    # 3. Illumination / Brightness & Contrast
     mean_bright = float(np.mean(gray))
-    if mean_bright < 35.0:
-        issues.append('Image is dark. CLAHE lighting correction applied.')
-    elif mean_bright > 225.0:
-        issues.append('Image is bright (over-exposed).')
+    if mean_bright < 30.0:
+        issues.append('Image is too dark (under-exposed).')
+        badges.append('✗ Too Dark')
+    elif mean_bright > 235.0:
+        issues.append('Image is over-exposed / washed out.')
+        badges.append('✗ Over-Exposed')
 
-    # Contrast check
     contrast = float(np.std(gray))
-    if contrast < 20.0:
+    if contrast < 18.0:
         issues.append('Low image contrast.')
+        badges.append('✗ Low Contrast')
 
-    # Blurry photos with score >= 15.0 are restored via sharpening filter instead of hard rejection
-    is_valid = (w >= 60 and h >= 60 and blur_score >= 15.0 and 20 <= mean_bright <= 245)
-    
-    # Calculate composite quality score (0 to 100)
-    sharpness_norm = min(100.0, (blur_score / 150.0) * 50.0)
+    # 4. Face Detection & Count Verification
+    detected_faces = detect_faces_yunet(img, score_thresh=0.5)
+    face_count = len(detected_faces)
+    face_too_small = False
+
+    if is_training:
+        if face_count == 0:
+            issues.append('No face detected in training photo.')
+            badges.append('✗ No Face Detected')
+        elif face_count > 1:
+            issues.append(f'Multiple faces detected ({face_count}). Training photo must contain exactly ONE student.')
+            badges.append('✗ Multiple Faces')
+        else:
+            # Check face size for the single detected face
+            fx, fy, fw, fh = detected_faces[0]['box']
+            face_area_pct = (fw * fh) / max(1, w * h) * 100
+            if fw < 50 or fh < 50 or face_area_pct < 4.0:
+                face_too_small = True
+                issues.append(f'Face too small ({fw}x{fh}px, {face_area_pct:.1f}% of image). Please move closer to camera.')
+                badges.append('✗ Face Too Small')
+
+    # 5. Duplicate Detection via Average Hash
+    is_duplicate = False
+    img_hash = None
+    try:
+        small_gray = cv2.resize(gray, (8, 8), interpolation=cv2.INTER_AREA)
+        avg = small_gray.mean()
+        img_hash = "".join(['1' if px > avg else '0' for px in small_gray.flatten()])
+        if existing_hashes and img_hash in existing_hashes:
+            is_duplicate = True
+            issues.append('Duplicate image already present in dataset.')
+            badges.append('✗ Duplicate')
+    except Exception:
+        pass
+
+    # Overall validity logic
+    if is_training:
+        is_valid = (
+            face_count == 1 and
+            not is_blurry and
+            not face_too_small and
+            not is_duplicate and
+            30.0 <= mean_bright <= 235.0 and
+            w >= 80 and h >= 80
+        )
+    else:
+        is_valid = (w >= 60 and h >= 60 and blur_score >= 15.0 and 20.0 <= mean_bright <= 245.0)
+
+    # Composite Quality Score (0 to 100)
+    sharp_norm = min(50.0, (blur_score / 120.0) * 50.0)
     bright_norm = max(0.0, 50.0 - abs(mean_bright - 128.0) * 0.4)
-    quality_score = round(min(100.0, max(15.0, sharpness_norm + bright_norm)), 1)
+    quality_score = round(min(100.0, max(10.0, sharp_norm + bright_norm)), 1)
+
+    primary_badge = '✓ Valid' if is_valid else (badges[0] if badges else '✗ Invalid Quality')
 
     return {
         'is_valid': is_valid,
+        'status': 'Valid' if is_valid else 'Rejected',
+        'badge': primary_badge,
+        'badges': badges if badges else ['✓ Valid'],
         'quality_score': quality_score,
         'blur_score': round(blur_score, 1),
         'brightness': round(mean_bright, 1),
+        'contrast': round(contrast, 1),
         'resolution': f'{w}x{h}',
+        'face_count': face_count,
+        'detected_faces': detected_faces,
+        'image_hash': img_hash,
         'issues': issues
     }
 
@@ -289,81 +446,83 @@ def normalize_embedding(vec):
     return vec.tolist()
 
 
-def detect_and_encode_faces(image_path, deep_scan=False):
+def detect_and_encode_faces(image_path, deep_scan=False, return_metadata=False):
     """
-    Detect faces via YOLOv8 (with Haar Cascade fallback for blurry photos) and encode with DeepFace/Facenet.
-    Optimized with automatic image restoration & unsharp masking.
+    Detect ALL faces in an image using YuNet deep-learning face detector (with YOLO fallback)
+    and extract FaceNet embeddings.
+    If return_metadata=True, returns list of dicts:
+       [{'box': (x, y, w, h), 'confidence': float, 'embedding': [128 floats]}, ...]
+    If return_metadata=False, returns list of embedding lists.
     """
     try:
         from deepface import DeepFace
         import cv2
 
-        model = _get_yolo_model()
+        if not os.path.exists(image_path):
+            print(f"[WARN] Image does not exist: {image_path}")
+            return []
+
         raw_img = cv2.imread(image_path)
         if raw_img is None:
             print(f"[WARN] Could not read image: {image_path}")
             return []
 
-        # Restore blur & contrast on classroom image before detection
+        # Enhance contrast/lighting if needed
         img = enhance_image_quality(raw_img)
-
         h, w = img.shape[:2]
-        # High detection resolution to capture distant classroom faces
-        max_dim = 1536 if deep_scan else 1280
-        if max(h, w) > max_dim:
-            scale = max_dim / max(h, w)
-            img_detect = cv2.resize(img, (0, 0), fx=scale, fy=scale)
-        else:
-            img_detect = img
 
-        conf_thresh = 0.22 if deep_scan else 0.35
-        results = model(img_detect, conf=conf_thresh, iou=0.45, imgsz=max_dim, classes=[0], verbose=False)
-        boxes = results[0].boxes
+        score_thresh = 0.45 if deep_scan else 0.55
+        faces = detect_faces_yunet(img, score_thresh=score_thresh)
 
-        face_crops = []
-        for i, box in enumerate(boxes):
+        # Fallback to YOLO if YuNet returned 0 faces
+        if not faces:
             try:
-                crop = extract_face_crop_yolo(img, box, (h, w), img_detect.shape[:2], deep_scan)
-                if crop.size > 0 and crop.shape[0] >= 25 and crop.shape[1] >= 25:
-                    face_crops.append(crop)
+                model = _get_yolo_model()
+                max_dim = 1536 if deep_scan else 1280
+                scale = max_dim / max(h, w) if max(h, w) > max_dim else 1.0
+                img_detect = cv2.resize(img, (0, 0), fx=scale, fy=scale) if scale != 1.0 else img
+                res = model(img_detect, conf=0.25, classes=[0], verbose=False)
+                for b in res[0].boxes:
+                    bx1, by1, bx2, by2 = map(int, b.xyxy[0])
+                    bx1 = int(bx1 / scale)
+                    bx2 = int(bx2 / scale)
+                    by1 = int(by1 / scale)
+                    by2 = int(by2 / scale)
+                    bw = bx2 - bx1
+                    bh = by2 - by1
+                    # Approximate head region if whole body detected
+                    head_h = int(bh * 0.40) if bh > 50 else bh
+                    faces.append({
+                        'box': (bx1, by1, bw, head_h),
+                        'confidence': round(float(b.conf[0]), 3)
+                    })
             except Exception as e:
-                continue
+                print(f"[YOLO-FALLBACK-ERR] {e}")
 
-        # Fallback 1: OpenCV Haar Cascade face detector if YOLO yields 0 boxes on blurry image
-        if not face_crops:
+        results_with_meta = []
+        encodings_only = []
+
+        for face_info in faces:
             try:
-                gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-                cascade_path = _get_cascade_path()
-                if cascade_path and os.path.exists(cascade_path):
-                    face_cascade = cv2.CascadeClassifier(cascade_path)
-                    faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=3, minSize=(30, 30))
-                    for (fx, fy, fw, fh) in faces:
-                        pad = 10
-                        crop = img[max(0, fy - pad):min(h, fy + fh + pad), max(0, fx - pad):min(w, fx + fw + pad)]
-                        if crop.size > 0:
-                            face_crops.append(crop)
-            except Exception as e:
-                print(f"  [WARN] Haar cascade fallback error: {e}")
+                fx, fy, fw, fh = face_info['box']
+                if fw < 16 or fh < 16:
+                    continue
 
-        # Fallback 2: RetinaFace SOTA Detector via DeepFace if YOLO & Haar Cascade missed faces
-        if not face_crops:
-            try:
-                extracted = DeepFace.extract_faces(img_path=image_path, detector_backend='retinaface', enforce_detection=True)
-                for f in extracted:
-                    if 'face' in f and f.get('confidence', 0) > 0.60:
-                        face_arr = (f['face'] * 255).astype(np.uint8)
-                        if face_arr.size > 0:
-                            face_crops.append(cv2.cvtColor(face_arr, cv2.COLOR_RGB2BGR))
-            except Exception as e:
-                print(f"  [WARN] RetinaFace fallback error: {e}")
+                # Add 15% context margin around face
+                pad_x = int(fw * 0.15)
+                pad_y = int(fh * 0.15)
+                x1 = max(0, fx - pad_x)
+                y1 = max(0, fy - pad_y)
+                x2 = min(w, fx + fw + pad_x)
+                y2 = min(h, fy + fh + pad_y)
 
-        encodings = []
-        for face_crop in face_crops:
-            try:
-                # Upscale & sharpen face crop before feature extraction
-                processed_crop = preprocess_face_crop_for_embedding(face_crop)
+                crop = img[y1:y2, x1:x2]
+                if crop.size == 0 or crop.shape[0] < 16 or crop.shape[1] < 16:
+                    continue
 
-                # Pass detector_backend='skip' because face region is already localized
+                # Preprocess & normalize crop for FaceNet
+                processed_crop = preprocess_face_crop_for_embedding(crop)
+
                 rep = DeepFace.represent(
                     processed_crop,
                     model_name='Facenet',
@@ -372,15 +531,21 @@ def detect_and_encode_faces(image_path, deep_scan=False):
                 )
                 if rep and len(rep) > 0 and 'embedding' in rep[0]:
                     norm_emb = normalize_embedding(rep[0]['embedding'])
-                    encodings.append(norm_emb)
+                    encodings_only.append(norm_emb)
+                    results_with_meta.append({
+                        'box': (fx, fy, fw, fh),
+                        'confidence': face_info.get('confidence', 0.9),
+                        'embedding': norm_emb
+                    })
             except Exception as e:
-                print(f"  [ERR] Face extraction error: {e}")
+                print(f"  [ERR] Face embedding extraction error: {e}")
                 continue
 
-        return encodings
+        if return_metadata:
+            return results_with_meta
+        return encodings_only
 
     except ImportError:
-        # Fallback using OpenCV feature extraction
         import cv2
         img = cv2.imread(image_path)
         if img is not None:
@@ -389,43 +554,36 @@ def detect_and_encode_faces(image_path, deep_scan=False):
             std = np.std(feat)
             if std > 0:
                 feat = (feat - np.mean(feat)) / std
-            return [normalize_embedding(feat)]
-        import random
-        random.seed(hash(image_path) % 1000)
-        raw = [[random.gauss(0, 1) for _ in range(128)]]
-        return [normalize_embedding(v) for v in raw]
+            emb = normalize_embedding(feat)
+            if return_metadata:
+                return [{'box': (0, 0, img.shape[1], img.shape[0]), 'confidence': 0.8, 'embedding': emb}]
+            return [emb]
+        return []
     except Exception as e:
         print(f"[FATAL] detect_and_encode_faces error: {e}")
         traceback.print_exc()
         return []
 
 
-def train_student_biometrics(image_paths, max_embeddings=15):
+def train_student_biometrics(image_paths, max_embeddings=20):
     """
-    Optimized YOLO-based biometric training combining manual uploads & camera burst photos:
-    1. Validates each source image (quality, blur, illumination) with auto-restoration.
-    2. Fast YOLOv8 inference + Haar cascade & DeepFace fallbacks to extract facial crops.
+    Biometric training combining all uploaded photos for a student:
+    1. Validates each source image (quality, blur, illumination, single face check).
+    2. Uses YuNet deep learning face detector to localize exact facial crops.
     3. Multi-stage realistic classroom augmentations (original, mirror, CLAHE, unsharp mask).
-    4. Fast FaceNet feature extraction with crop upscaling & sharpening.
-    5. Deduplicates near-identical embeddings (>0.95 cosine similarity) to store up to 15 distinct vectors.
+    4. FaceNet feature extraction with crop upscaling & sharpening.
+    5. Deduplicates near-identical embeddings (>0.96 cosine similarity) to store distinct vectors.
     """
     try:
         from deepface import DeepFace
         import cv2
 
-        model = _get_yolo_model()
         all_raw_embeddings = []
         validation_reports = []
         valid_images = 0
+        seen_hashes = set()
 
-        # If student has a large number of burst photos (>12), sample 10 optimal keyframes for fast training
-        if len(image_paths) > 12:
-            indices = np.linspace(0, len(image_paths) - 1, 10, dtype=int)
-            selected_paths = [image_paths[i] for i in indices]
-        else:
-            selected_paths = image_paths
-
-        for path in selected_paths:
+        for path in image_paths:
             if not os.path.exists(path):
                 continue
 
@@ -433,87 +591,71 @@ def train_student_biometrics(image_paths, max_embeddings=15):
             if raw_img is None:
                 continue
 
-            # Validate Image Quality
-            val_res = validate_image_quality(raw_img)
+            # Validate Image Quality with strict training checks
+            val_res = validate_image_quality(raw_img, is_training=True, existing_hashes=seen_hashes)
             val_res['filename'] = os.path.basename(path)
             validation_reports.append(val_res)
+            if val_res.get('image_hash'):
+                seen_hashes.add(val_res['image_hash'])
 
             # Pre-enhance training image (restores blur & lighting)
             img = enhance_image_quality(raw_img)
-
             h, w = img.shape[:2]
-            scale = 640 / max(h, w) if max(h, w) > 640 else 1.0
-            img_detect = cv2.resize(img, (0, 0), fx=scale, fy=scale) if scale != 1.0 else img
 
-            # Fast YOLO face/person detection
-            results = model(img_detect, conf=0.15, iou=0.45, imgsz=640, classes=[0], verbose=False)
-            boxes = results[0].boxes
+            # Detect face using YuNet
+            faces = detect_faces_yunet(img, score_thresh=0.5)
 
-            face_crops = []
-            if len(boxes) > 0:
-                best_box = max(boxes, key=lambda b: float(b.conf[0]))
-                crop = extract_face_crop_yolo(img, best_box, (h, w), img_detect.shape[:2])
-                if crop.size > 0 and crop.shape[0] >= 25 and crop.shape[1] >= 25:
-                    face_crops.append(crop)
-            
-            # Haar cascade fallback for training photos if YOLO detects no person/face
-            if not face_crops:
+            # Fallback to YOLO if YuNet missed
+            if not faces:
                 try:
-                    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-                    cascade_path = _get_cascade_path()
-                    if cascade_path and os.path.exists(cascade_path):
-                        face_cascade = cv2.CascadeClassifier(cascade_path)
-                        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=3, minSize=(30, 30))
-                        if len(faces) > 0:
-                            fx, fy, fw, fh = faces[0]
-                            pad = 10
-                            crop = img[max(0, fy - pad):min(h, fy + fh + pad), max(0, fx - pad):min(w, fx + fw + pad)]
-                            if crop.size > 0:
-                                face_crops.append(crop)
+                    model = _get_yolo_model()
+                    res = model(img, conf=0.15, classes=[0], verbose=False)
+                    for b in res[0].boxes:
+                        bx1, by1, bx2, by2 = map(int, b.xyxy[0])
+                        bw = bx2 - bx1
+                        bh = by2 - by1
+                        head_h = int(bh * 0.45) if bh > 40 else bh
+                        faces.append({'box': (bx1, by1, bw, head_h), 'confidence': float(b.conf[0])})
                 except Exception:
                     pass
 
-            # RetinaFace SOTA Detector fallback if YOLO & Haar Cascade missed face in training photo
-            if not face_crops:
-                try:
-                    extracted = DeepFace.extract_faces(img_path=path, detector_backend='retinaface', enforce_detection=True)
-                    for f in extracted:
-                        if 'face' in f and f.get('confidence', 0) > 0.60:
-                            face_arr = (f['face'] * 255).astype(np.uint8)
-                            if face_arr.size > 0:
-                                face_crops.append(cv2.cvtColor(face_arr, cv2.COLOR_RGB2BGR))
-                except Exception:
-                    pass
-
-            # If no face is localized in training photo, skip to avoid corrupting biometrics with non-face image
-            if not face_crops:
-                print(f"[WARN] No face localized in training image: {path}. Skipping image.")
+            if not faces:
+                print(f"[WARN] No face localized in training image: {path}. Skipping.")
                 continue
 
-            for crop in face_crops:
-                valid_images += 1
-                # Adaptive augmentation: use fewer augmentations when dataset has 5+ distinct photos
-                if len(selected_paths) >= 8:
-                    aug_crops = [crop]
-                elif len(selected_paths) >= 4:
-                    aug_crops = [crop, cv2.flip(crop, 1)]
-                else:
-                    aug_crops = augment_face_crop(crop)
+            # Extract the best face crop (largest area)
+            best_face = max(faces, key=lambda f: f['box'][2] * f['box'][3])
+            fx, fy, fw, fh = best_face['box']
+            pad_x = int(fw * 0.15)
+            pad_y = int(fh * 0.15)
+            x1 = max(0, fx - pad_x)
+            y1 = max(0, fy - pad_y)
+            x2 = min(w, fx + fw + pad_x)
+            y2 = min(h, fy + fh + pad_y)
 
-                for aug in aug_crops:
-                    try:
-                        processed_aug = preprocess_face_crop_for_embedding(aug)
-                        rep = DeepFace.represent(
-                            processed_aug,
-                            model_name='Facenet',
-                            enforce_detection=False,
-                            detector_backend='skip'
-                        )
-                        if rep and len(rep) > 0 and 'embedding' in rep[0]:
-                            norm_v = normalize_embedding(rep[0]['embedding'])
-                            all_raw_embeddings.append(norm_v)
-                    except Exception:
-                        continue
+            crop = img[y1:y2, x1:x2]
+            if crop.size == 0 or crop.shape[0] < 20 or crop.shape[1] < 20:
+                continue
+
+            valid_images += 1
+
+            # Augmentation variations: original, horizontal flip, CLAHE, sharpened
+            aug_crops = augment_face_crop(crop)
+
+            for aug in aug_crops:
+                try:
+                    processed_aug = preprocess_face_crop_for_embedding(aug)
+                    rep = DeepFace.represent(
+                        processed_aug,
+                        model_name='Facenet',
+                        enforce_detection=False,
+                        detector_backend='skip'
+                    )
+                    if rep and len(rep) > 0 and 'embedding' in rep[0]:
+                        norm_v = normalize_embedding(rep[0]['embedding'])
+                        all_raw_embeddings.append(norm_v)
+                except Exception:
+                    continue
 
         if not all_raw_embeddings:
             return {
