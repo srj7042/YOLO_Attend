@@ -115,8 +115,7 @@ def detect_faces_yunet(img, score_thresh=0.6, nms_thresh=0.3):
             fh = min(h - fy, max(1, fh))
             results.append({
                 'box': (fx, fy, fw, fh),
-                'confidence': round(conf, 3),
-                'raw': face
+                'confidence': round(conf, 3)
             })
         return results
     except Exception as e:
@@ -329,7 +328,7 @@ def validate_image_quality(img_or_path, is_training=False, existing_hashes=None)
         'contrast': round(contrast, 1),
         'resolution': f'{w}x{h}',
         'face_count': face_count,
-        'detected_faces': detected_faces,
+        'detected_faces': [{'box': list(map(int, f['box'])), 'confidence': float(f['confidence'])} for f in detected_faces],
         'image_hash': img_hash,
         'issues': issues
     }

@@ -6,6 +6,7 @@ from models import User, Department, Class, Subject, Student, StudentTrainingIma
 from datetime import datetime, date, timedelta
 from werkzeug.utils import secure_filename
 import csv, io, json, os, uuid
+import numpy as np
 from config import Config
 from utils.image_utils import save_and_optimize_student_photo, get_or_create_thumbnail, is_allowed_image
 
